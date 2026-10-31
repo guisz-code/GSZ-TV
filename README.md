@@ -1,44 +1,124 @@
 # GSZ TV
 
-Launcher leve, sem anúncios e pensado para o projetor **Magcubic HY300 com Android 12**.
+**Um launcher leve, simples e sem anúncios para Android TV.**
 
-O GSZ TV mantém os aplicativos do usuário em primeiro plano e inclui acessos diretos para o que faz parte do uso real do projetor:
+O GSZ TV é um projeto de launcher desenvolvido com foco em praticidade, simplicidade e desempenho, oferecendo uma experiência de navegação mais limpa em dispositivos Android TV.
 
-- Entrada HDMI;
-- Menu nativo de projeção do HY300 — correção de cantos/keystone, rotação e ajustes de imagem;
-- Configurações do Android;
-- Central de desempenho, com status de RAM e armazenamento e limpeza configurável de apps em segundo plano;
-- Continuar assistindo com capa, cores predominantes e gradiente adaptado ao tema;
-- Alternância reversível entre GSZ TV e o launcher original MovieArk.
+O projeto tem como referência o projetor **Magcubic HY300**, com Android 12.
 
-## Instalar no HY300
+## ✨ Características
 
-Com o projetor conectado por ADB:
+- Interface simples e intuitiva.
+- Visual limpo, sem anúncios.
+- Navegação adaptada para televisão e controle remoto.
+- Foco em leveza e desempenho.
+- Projeto baseado no Free My TV, com personalizações do GSZ TV.
 
-```powershell
-$adb="C:\\Users\\Guisz\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Google.PlatformTools_Microsoft.Winget.Source_8wekyb3d8bbwe\\platform-tools\\adb.exe"
-& $adb connect 192.168.1.22:13111
-& $adb -s 192.168.1.22:13111 install -r GSZTV.apk
+## 📱 Compatibilidade
+
+- **Dispositivo de referência:** Magcubic HY300.
+- **Sistema operacional:** Android 12.
+- **Plataforma:** Android TV / dispositivos Android compatíveis.
+
+A compatibilidade com outros dispositivos pode variar de acordo com a versão do Android e suas características.
+
+## 🛠️ Compilação
+
+Para compilar o projeto, você precisará de:
+
+- Java JDK compatível com o projeto.
+- Android SDK.
+- Android Build Tools.
+- ADB (Android Debug Bridge).
+- Git.
+
+### 1. Clonar o repositório
+
+```bash
+git clone https://github.com/guisz-code/GSZ-TV.git
 ```
 
-## Compilar
+Entre na pasta:
 
-Requer JDK 17 e Android SDK com `build-tools` e plataforma Android 34.
-
-```powershell
-$env:JAVA_HOME="C:\\Program Files\\Microsoft\\jdk-17.0.21.21-hotspot"
-$env:ANDROID_HOME="C:\\Users\\Guisz\\Documents\\Codex\\2026-10-30\\atue-como-um-desenvolvedor-android-expert\\outputs\\GSZ-TV\\android-sdk"
-& "C:\\Program Files\\Git\\bin\\bash.exe" ./build.sh --generic
+```bash
+cd GSZ-TV
 ```
 
-O APK gerado é `GSZTV.apk`.
+### 2. Configurar o ambiente
 
-## Créditos
+Configure as variáveis de ambiente necessárias para o Java e o Android SDK:
 
-O GSZ TV é um projeto independente e específico para o HY300, desenvolvido a partir do código aberto do [Free My TV](https://github.com/simbasjungles/free-my-tv), de seus contribuidores. A base original é licenciada sob a licença MIT; por isso, o aviso de copyright e a licença original são preservados em [LICENSE](LICENSE).
+- `JAVA_HOME`: diretório de instalação do Java JDK.
+- `ANDROID_HOME`: diretório do Android SDK.
 
-As modificações para o GSZ TV incluem identidade visual, integração com os menus nativos do HY300, gestão reversível do MovieArk, Central de Desempenho e melhorias no "Continuar assistindo".
+Adicione também as ferramentas do Android SDK ao PATH, conforme necessário.
 
-## Licença
+### 3. Compilar
 
-MIT. Consulte [LICENSE](LICENSE).
+Execute o script de compilação disponibilizado no projeto:
+
+```bash
+bash build.sh
+```
+
+O APK gerado deverá ser localizado no diretório de saída configurado pelo script.
+
+> Observação: os requisitos exatos de versão do Java, Android SDK e Build Tools devem ser consultados na configuração do projeto.
+
+## 📲 Instalação
+
+Você pode instalar o APK em um dispositivo Android utilizando o ADB.
+
+### Instalação por USB
+
+Conecte o dispositivo ao computador com a depuração USB ativada e execute:
+
+```bash
+adb install caminho/do/arquivo.apk
+```
+
+### Instalação por Wi-Fi
+
+1. Ative as opções de desenvolvedor no dispositivo.
+2. Ative a depuração sem fio.
+3. Consulte o endereço IP e a porta informados pelo Android.
+4. Conecte utilizando:
+
+```bash
+adb connect IP_DO_DISPOSITIVO:PORTA
+```
+
+5. Instale o APK:
+
+```bash
+adb install caminho/do/arquivo.apk
+```
+
+## 📁 Estrutura do projeto
+
+```text
+GSZ-TV/
+├── app/
+├── .gitignore
+├── build.sh
+├── LICENSE
+└── README.md
+```
+
+## ⚖️ Créditos e licença
+
+Este projeto utiliza como referência o **Free My TV**.
+
+Todos os créditos e avisos de licença dos componentes de terceiros devem ser preservados conforme suas respectivas licenças.
+
+O GSZ TV é distribuído sob a licença MIT, conforme os termos disponíveis no arquivo `LICENSE`.
+
+## 👨‍💻 Desenvolvedor
+
+**GSZ TV — GSZ**
+
+GitHub: https://github.com/guisz-code
+
+---
+
+*Desenvolvido com foco em simplicidade, leveza e uma melhor experiência de uso em dispositivos Android.*
