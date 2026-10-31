@@ -17,6 +17,34 @@ O GSZ TV oferece uma tela inicial mais limpa e pensada para navegação com cont
 
 ## Baixar e instalar
 
+### Qual é o sistema da minha TV?
+
+Abra as configurações da TV e procure **Sobre**, **Informações da TV** ou **Suporte**. Confira o modelo e a versão do sistema; se necessário, consulte o manual pelo modelo no site do fabricante.
+
+| Sistema | Aparelhos | Arquivo |
+| --- | --- | --- |
+| Android TV / Google TV | Projetores e TVs de várias marcas | `GSZTV.apk` |
+| webOS | Smart TVs LG compatíveis | `GSZTV-webos.ipk` |
+| Tizen | Smart TVs Samsung compatíveis | `GSZTV-tizen.wgt` |
+
+TVs LG e Samsung antigas podem usar outros sistemas (NetCast e Orsay). A marca sozinha não garante compatibilidade. Um aparelho Android conectado por HDMI tem seu próprio sistema, independente da TV.
+
+### LG webOS e Samsung Tizen — versão experimental 0.1.0
+
+As versões web compartilham a interface e navegação por controle remoto do projeto-base Free My TV. Funcionam como aplicativos: a tela inicial do fabricante permanece. Não incluem a gestão Android de processos, ADB ou os ajustes de projeção do HY300. Ainda precisam de validação em TVs reais.
+
+**LG:** instale o aplicativo Developer Mode da loja LG, entre com sua conta de desenvolvedor e ative Dev Mode Status e Key Server. No computador, instale o pacote `.ipk` usando as ferramentas oficiais webOS ou execute `python webos/install.py IP_DA_TV` a partir deste repositório. Digite a senha de pareamento somente no terminal. Mantenha a sessão Developer Mode renovada; quando expira, os aplicativos de desenvolvimento podem ser removidos.
+
+**Samsung:** ative Developer Mode na área Apps da TV e configure o IP do computador conforme a documentação Samsung. O `.wgt` distribuído é **sem assinatura**: precisa ser assinado com um perfil válido do Tizen Studio, e determinados modelos exigem certificado Samsung associado à TV. Compile com `python tizen/build.py --generic --sign NOME_DO_PERFIL` e instale com `python tizen/install.py IP_DA_TV`. Preserve o certificado para atualizações.
+
+Baixar esses pacotes pelo navegador ou colocá-los num pendrive não equivale à instalação de APK no Android. As versões LG e Samsung são atualizadas pelo mesmo processo de instalação usado inicialmente; não usam o atualizador Android.
+
+Documentação: [LG webOS](https://webostv.developer.lge.com/develop/getting-started/build-your-first-web-app) e [Samsung Tizen](https://developer.samsung.com/smarttv/develop/getting-started/quick-start-guide.html).
+
+Para gerar os pacotes com Python 3: `python webos/build.py --generic` e `python tizen/build.py --generic`. Fontes adaptadas de `simbasjungles/free-my-tv`, revisão `a9e10278b20de9e5700eeacb1503bca8145f220d`; licença original preservada em `LICENSE-FreeMyTV`.
+
+### Android TV / Google TV
+
 1. Abra a página de [Releases](https://github.com/guisz-code/GSZ-TV/releases/latest) e baixe o arquivo **`GSZTV.apk`**.
 2. Envie o arquivo para a TV ou projetor usando um pendrive, gerenciador de arquivos, nuvem ou aplicativo de transferência de arquivos.
 3. Na TV, abra o arquivo `GSZTV.apk`.
