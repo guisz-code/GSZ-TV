@@ -43,11 +43,11 @@ import java.security.MessageDigest;
 final class Updates {
     private Updates() {}
 
-    private static final String LATEST = "https://api.github.com/repos/simbasjungles/gsz-tv/releases/latest";
+    private static final String LATEST = "https://api.github.com/repos/guisz-code/GSZ-TV/releases/latest";
     // The only place the APK may come from: this repository's releases (github.com redirects to its download host).
-    private static final String RELEASES = "https://github.com/simbasjungles/gsz-tv/releases/download/";
+    private static final String RELEASES = "https://github.com/guisz-code/GSZ-TV/releases/download/";
     // The release key's certificate, as `apksigner verify --print-certs` shows it: only APKs signed with it come in.
-    private static final String RELEASE_CERT = "b85d4ff69cb42bfb1837ee0279506363954470b16402a4165f2f095886d19204";
+    private static final String RELEASE_CERT = "d28bc8e7c43c11a4eb4c2222c3b711aeee2a7b2f3506ee1f1040041ddb874841";
     private static final String ASSET = "GSZTV.apk";
     private static final long MAX_SIZE = 30L << 20;   // the APK is about 1.5 MB
     private static final long WEEK = 7 * 24 * 3600_000L;

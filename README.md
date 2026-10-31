@@ -25,6 +25,10 @@ Se aparecer um aviso de segurança do Android, isso é esperado para aplicativos
 
 ### Atualizar uma instalação existente
 
+A partir da versão 1.5, abra **Configurações > Atualizações** no GSZ TV para verificar, baixar e instalar uma versão mais recente. O Android solicita confirmação antes de instalar. Também há uma verificação periódica semanal quando existe conexão.
+
+Quem usa a versão 1.4 precisa instalar a 1.5 manualmente uma vez, pois o atualizador antigo consultava outro repositório.
+
 Baixe a versão mais recente e instale-a por cima da versão atual. Não desinstale o GSZ TV antes de atualizar: assim suas configurações são preservadas.
 
 ## Depois da instalação
@@ -80,6 +84,14 @@ bash build.sh --generic
 O arquivo gerado será `GSZTV.apk` na raiz do projeto. O modo `--generic` não inclui chaves ou dados pessoais no APK e é o formato recomendado para Releases públicas.
 
 ## Estrutura do projeto
+
+### Publicar novas versões
+
+1. Aumente `android:versionCode` e `android:versionName` em `app/AndroidManifest.xml`.
+2. Compile com `bash build.sh --generic`, preservando a mesma `gsztv.keystore` utilizada na versão 1.5. Guarde uma cópia segura dessa chave; não a publique no GitHub.
+3. Crie uma release pública, não marcada como pré-release, com tag correspondente à versão (por exemplo, `v1.6`).
+4. Anexe o APK com o nome exato **`GSZTV.apk`**. O atualizador verifica o pacote, a versão e a assinatura antes de instalar.
+
 
 ```text
 GSZ-TV/
