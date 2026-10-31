@@ -1,4 +1,6 @@
-# GSZ TV
+# GSZ TV — Launcher para Android TV e projetores
+
+**GSZ TV** é um launcher gratuito e sem anúncios para **Android TV**, criado por [@guisz-code](https://github.com/guisz-code). Instale no projetor Magcubic HY300 ou em outros dispositivos Android TV compatíveis.
 
 <p align="center">
   <img src="app/res/drawable-nodpi/icon.png" alt="Ícone do GSZ TV" width="180">
