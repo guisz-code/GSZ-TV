@@ -2658,7 +2658,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             // Only read when it's shown: with the picks or the clock, Continue Watching costs nothing.
             final String mode = Prefs.topContent();
             final boolean allowed = WatchNext.allowed(c);
-            final List<WatchNext.Item> w = WatchNext.load(c);
+            final List<WatchNext.Item> w = mode.equals(Prefs.TOP_CONTINUE) || mode.equals(Prefs.TOP_BOTH) ? WatchNext.load(c) : new ArrayList<>();
             handler.post(() -> {
                 if (top != null) setLightButtons(top);
                 setTopContent(mode, w, allowed);
@@ -3972,16 +3972,16 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** Picks need a TMDB key: without one, "picks" shows the clock, like "nothing". */
     private boolean picksMode() {
-        return true; // Keep the navigation available before TMDB is configured.
+        return topMode.equals(Prefs.TOP_PICKS) || topMode.equals(Prefs.TOP_BOTH);
     }
 
     /** The clock, the date and the weather: nothing at the top, or picks without a TMDB key. */
     private boolean clockMode() {
-        return false;
+        return topMode.equals(Prefs.TOP_NONE);
     }
 
     private boolean continueMode() {
-        return true; // Streaming home shows the history below the hero.
+        return topMode.equals(Prefs.TOP_CONTINUE) || topMode.equals(Prefs.TOP_BOTH);
     }
 
     /** What the top shows now (from reload, off the main thread) and, for Continue Watching, its list. */
@@ -4033,7 +4033,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void watchRect(int i, RectF out) {
         if (streamingDesign()) {
             float x = (80 + (i - watchScroll.value) * 600) * k;
-            out.set(x, 650*k, x + 560*k, 790*k); return;
+            float y = picksMode() ? 650*k : 330*k; out.set(x, y, x + 560*k, y + 140*k); return;
         }
         float step = (WatchArt.W + WATCH_GAP) * k;
         float x = MARGIN * k + i * step - watchScroll.value * step, y = L_CARDS_TOP * k;
@@ -4458,14 +4458,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         streamText(c,"GSZ",160,94,56,ink,160); streamText(c,"TV",298,94,56,accent,100);
         if (Prefs.theme().equals("gsz")) streamText(c,"GSZ EDITION",163,122,14,accent,240);
         String[] names={"Início","Filmes","Séries"};
-        for(int i=0;i<3;i++) {
+        for(int i=0;picksMode() && i<3;i++) {
             RectF r=topRects[i]; boolean on=i==tab;
             if(on) streamBox(c,r,accent,zone==Z_TOP && topIndex==i);
             fitPaint.set(lTab); fitPaint.setColor(on ? (Prefs.theme().equals("gsz") ? WHITE : tone(WHITE,L_INK)) : ink);
             c.drawText(names[i],r.centerX()-fitPaint.measureText(names[i])/2,r.centerY()+Ui.halfCap(fitPaint),fitPaint);
         }
         streamText(c,clockText,1730,85,28,ink,110);
-        RectF heroBox=new RectF(80*k,154*k,1840*k,560*k);
+        if (clockMode()) drawClock(c); if (picksMode()) { RectF heroBox=new RectF(80*k,154*k,1840*k,560*k);
         Recs.Pick pick=cards.isEmpty()?null:cards.get(Math.min(cardIndex,cards.size()-1));
         streamBox(c,heroBox,tone(0xFFE7EAF0,0xFF0A1520),zone==Z_CARDS);
         if(pick!=null) {
@@ -4486,14 +4486,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             streamText(c,"▶  Assistir",178,480,27,Prefs.theme().equals("gsz")?WHITE:tone(WHITE,L_INK),220);
             streamText(c,(cardIndex+1)+" / "+cards.size(),1660,520,22,ink,120);
         }
-        streamText(c,"Continuar assistindo",80,620,34,ink,1000);
-        if(watching.isEmpty()) streamText(c,watchAllowed?"Seus títulos em andamento aparecerão aqui.":"Ative Continuar assistindo nas configurações para permitir o acesso.",80,710,23,dim,1700);
+        } if (continueMode()) { float watchY = picksMode() ? 620 : 300; streamText(c,"Continuar assistindo",80,watchY,34,ink,1000);
+        if(watching.isEmpty()) streamText(c,watchAllowed?"Seus títulos em andamento aparecerão aqui.":"Ative Continuar assistindo nas configurações para permitir o acesso.",80,watchY+90,23,dim,1700);
         else {
-            c.save(); c.clipRect(55*k,635*k,w,810*k);
+            c.save(); c.clipRect(55*k,(watchY+15)*k,w,(watchY+190)*k);
             for(int i=0;i<watching.size();i++) drawStreamingWatch(c,i);
             c.restore();
         }
-        streamText(c,"Meus apps",80,862,34,ink,1000);
+        } streamText(c,"Meus apps",80,862,34,ink,1000);
     }
     private void drawStreamingWatch(Canvas c, int i) {
         watchRect(i,cell); if(cell.left>w || cell.right<0) return;

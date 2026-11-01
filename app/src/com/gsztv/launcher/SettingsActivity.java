@@ -1104,7 +1104,7 @@ public class SettingsActivity extends Activity {
             v[PICKS_ROW] = "›";   // opens its own screen: Picks per tab and Picks from
             v[SAVER_ROW] = onOff(Prefs.saverWatch());
             String top = Prefs.topContent();
-            v[TOP_ROW] = top.equals(Prefs.TOP_CONTINUE) ? Ui.tr("Continue Watching")
+            v[TOP_ROW] = top.equals(Prefs.TOP_BOTH) ? "Destaques e continuar assistindo" : top.equals(Prefs.TOP_CONTINUE) ? Ui.tr("Continue Watching")
                     : top.equals(Prefs.TOP_NONE) ? Ui.tr("Clock")
                     : Ui.tr("Picks");
             v[WATCH_ROW] = watchCount();
@@ -1936,7 +1936,7 @@ public class SettingsActivity extends Activity {
             if (!watchPickPending) return;
             watchPickPending = false;
             handler.removeCallbacks(askWatch);
-            if (Prefs.topContent().equals(Prefs.TOP_CONTINUE) && !WatchNext.allowed(getContext())) {
+            if ((Prefs.topContent().equals(Prefs.TOP_CONTINUE) || Prefs.topContent().equals(Prefs.TOP_BOTH)) && !WatchNext.allowed(getContext())) {
                 HomeMode.requestWatchGrant(getContext());
                 watchGrantPending = true;
                 handler.postDelayed(askWatch, WATCH_GRANT_MS);
@@ -1947,13 +1947,13 @@ public class SettingsActivity extends Activity {
         private void askWatch() {
             if (!running) return;
             watchGrantPending = false;
-            if (Prefs.topContent().equals(Prefs.TOP_CONTINUE) && !WatchNext.allowed(getContext())) {
+            if ((Prefs.topContent().equals(Prefs.TOP_CONTINUE) || Prefs.topContent().equals(Prefs.TOP_BOTH)) && !WatchNext.allowed(getContext())) {
                 activity.requestPermissions(new String[] {WatchNext.PERMISSION}, 1);
             }
         }
 
         private boolean watchLocked() {
-            return !Prefs.topContent().equals(Prefs.TOP_CONTINUE);
+            return !(Prefs.topContent().equals(Prefs.TOP_CONTINUE) || Prefs.topContent().equals(Prefs.TOP_BOTH));
         }
 
         /** Looks for the apps that can feed Continue Watching, in the background (only here, never on the home screen). */
