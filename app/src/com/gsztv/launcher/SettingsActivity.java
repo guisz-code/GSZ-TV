@@ -975,7 +975,7 @@ public class SettingsActivity extends Activity {
 
         // MARK: - Home Settings and Remote Buttons
 
-        private static final String[] UNITS = {"auto", "C", "F"}, THEMES = {"auto", "light", "dark"},
+        private static final String[] UNITS = {"auto", "C", "F"}, THEMES = {"gsz", "light", "dark", "auto"},
                 CLOCKS = {"auto", "24", "12"};
         /** Home Settings: language, temperature, theme, clock, my photos, sounds, top of the screen, picks, Continue
          *  Watching's apps, watch from the screensaver, Android apps, status icons, Recent Apps, weather, city, forecast,
@@ -1093,7 +1093,7 @@ public class SettingsActivity extends Activity {
             String unit = Prefs.temperature();
             v[1] = unit.equals("C") ? "°C" : unit.equals("F") ? "°F" : Ui.tr("unit|Automatic");
             String theme = Prefs.theme();
-            v[2] = theme.equals("light") ? Ui.tr("Light") : theme.equals("dark") ? Ui.tr("Dark") : Ui.tr("Automatic");
+            v[2] = theme.equals("gsz") ? "GSZ Edition" : theme.equals("light") ? "Branco" : theme.equals("dark") ? "Preto" : Ui.tr("Automatic");
             int photos = Photos.files(getContext()).size();
             v[PHOTOS_ROW] = photos == 0 ? Ui.tr("photos|None")
                     : Prefs.photos() ? Ui.plural("plural|one:{n} photo|other:{n} photos", photos) : Ui.tr("Off");

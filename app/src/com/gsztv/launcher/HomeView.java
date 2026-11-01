@@ -93,7 +93,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     // padding (the focused icon grows 20% without touching its edge). The icons are 16:9, the shape of the apps' TV
     // banners, so those are never stretched: up to 224 × 126, 178 × 100 with eight apps, 133 × 75 with ten
     // (HomeApps.shelfVisible; past that the shelf scrolls).
-    private static final float SHELF_PAD = 40, TILE_GAP = 48;
+    private static final float SHELF_PAD = 20, TILE_GAP = 28;
     private static final float TILE_RADIUS = 22;
     // Tile focus (Apple TV style): it grows from the center and its shadow drops (it "rises" toward the viewer).
     private static final float FOCUS_GROW = 0.2f;
@@ -120,7 +120,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private static final float L_TALL_W = 320, L_CARD_GAP = 40, L_BUTTON = 68, L_BUTTON_GAP = 20, L_BUTTON_CY = 103;
     private static final float L_STATUS = 25, L_STATUS_GAP = 22;
     private static final String[] STATUS_SYMBOLS = {"wifi", "ethernet", "bluetooth", "usb"};
-    private static final float L_PLATTER_TOP = 814, L_TILE_H = 126;
+    private static final float L_PLATTER_TOP = 870, L_TILE_H = 120;
     private static final float L_DATE_BASE = 330, L_CLOCK_BASE = 540, L_WEATHER_BASE = 626, L_QUOTES_BASE = 694;
     private static final int L_INK = 0xFF1D1D1F, L_DIM = 0xFF6E6E73, L_FAINT = 0xFF8E8E93;
     private static String[] tabs;
@@ -804,7 +804,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     /** The tab names, made again only when the language changes (they are drawn on every frame). */
     private static String[] tabs() {
         if (tabsGeneration != Ui.generation) {
-            tabs = new String[] {Ui.tr("Explore"), Ui.tr("Movies"), Ui.tr("Shows")};
+            tabs = new String[] {"Início", Ui.tr("Movies"), Ui.tr("Shows")};
             tabsGeneration = Ui.generation;
         }
         return tabs;
@@ -834,7 +834,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         int width = MeasureSpec.getSize(widthSpec), height = MeasureSpec.getSize(heightSpec);
         float kk = width / 1920f;
         measure(sky, width, height);
-        measure(heroLayer, width, Math.round(790 * kk));
+        measure(heroLayer, width, Math.round(900 * kk));
         // The icons at the top left need the whole width; with them off the layer keeps its old size (the corner buttons
         // only), so the GPU still composites a small layer.
         statusWide = Prefs.statusIcons();
@@ -1041,7 +1041,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                 refreshHero(false);
                 heroLayer.invalidate();
             }
-            if (clockMode()) heroLayer.invalidate();
+            if (clockMode() || streamingDesign()) heroLayer.invalidate();
         }
 
         // Busy: something is moving, or the sheet or the drawer is open.
@@ -1645,6 +1645,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** Shelf layer: the glass bar and its shadow (it only changes with the background). */
     private void drawPlatter(Canvas c) {
+        if (streamingDesign()) return;
         if (shelf.isEmpty()) return;
         float radius = (TILE_RADIUS + SHELF_PAD) * k;
         tmp.set(platterRect);
@@ -2657,7 +2658,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             // Only read when it's shown: with the picks or the clock, Continue Watching costs nothing.
             final String mode = Prefs.topContent();
             final boolean allowed = WatchNext.allowed(c);
-            final List<WatchNext.Item> w = mode.equals(Prefs.TOP_CONTINUE) ? WatchNext.load(c) : new ArrayList<>();
+            final List<WatchNext.Item> w = WatchNext.load(c);
             handler.post(() -> {
                 if (top != null) setLightButtons(top);
                 setTopContent(mode, w, allowed);
@@ -3881,14 +3882,15 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (lTab == null) return;
         // Text tabs; the focus pill extends 26 px past the text (the first tab's text starts at the margin).
         float pad = 26 * k, tabTop = L_TABBAR_TOP * k, tabBottom = (L_TABBAR_TOP + L_TABBAR_H) * k;
-        float x = MARGIN * k - pad;
+        float x = 470 * k;
+        tabTop = 38 * k; tabBottom = 106 * k;
         for (int i = 0; i < 3; i++) {
             float tw = Math.max(lTabOn.measureText(tabs()[i]), lTab.measureText(tabs()[i]));
             topRects[i].set(x, tabTop, x + tw + 2 * pad, tabBottom);
             snap(topRects[i]);
             x = topRects[i].right + 4 * k;
         }
-        float b = L_BUTTON * k, right = CONTENT_R * k, cy = L_BUTTON_CY * k;
+        float b = L_BUTTON * k, right = (CONTENT_R - 125) * k, cy = 72 * k;
         for (int i = lightButtons.size() - 1; i >= 0; i--) {
             topRects[3 + i].set(right - b, cy - b / 2, right, cy + b / 2);
             right -= b + L_BUTTON_GAP * k;
@@ -3910,6 +3912,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** The cards side by side: the one at cardIndex wide, the others tall, sliding as `cardOpen` moves. */
     private void layoutCards() {
+        if (streamingDesign()) {
+            for (int i = 0; i < cardRects.length; i++)
+                cardRects[i].set(i == cardIndex ? 80*k : -4000*k, 154*k, i == cardIndex ? 1840*k : -3900*k, 560*k);
+            return;
+        }
         float top = L_CARDS_TOP * k, ch = L_CARD_H * k, g = L_CARD_GAP * k, tall = L_TALL_W * k;
         float wide = (CONTENT_R - MARGIN) * k - 2 * tall - 2 * g, x = MARGIN * k - cardScroll.value * (tall + g);
         for (int i = 0; i < Recs.MAX_CARDS; i++) {
@@ -3965,16 +3972,16 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** Picks need a TMDB key: without one, "picks" shows the clock, like "nothing". */
     private boolean picksMode() {
-        return topMode.equals(Prefs.TOP_PICKS) && picksOn();
+        return true; // Keep the navigation available before TMDB is configured.
     }
 
     /** The clock, the date and the weather: nothing at the top, or picks without a TMDB key. */
     private boolean clockMode() {
-        return !picksMode() && !continueMode();
+        return false;
     }
 
     private boolean continueMode() {
-        return topMode.equals(Prefs.TOP_CONTINUE);
+        return true; // Streaming home shows the history below the hero.
     }
 
     /** What the top shows now (from reload, off the main thread) and, for Continue Watching, its list. */
@@ -3989,7 +3996,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         // The permission (granted or taken back) and the first read change what an empty row says: redraw for those.
         boolean textChanged = allowed != watchAllowed || !watchLoaded && mode.equals(Prefs.TOP_CONTINUE);
         watchAllowed = allowed;
-        if (mode.equals(Prefs.TOP_CONTINUE)) watchLoaded = true;
+        watchLoaded = true;
         if (!modeChanged && !listChanged) {
             if (textChanged) heroDirty = true;
             return;
@@ -4024,6 +4031,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** Card i's place on screen (without its focus growth), scrolled with the row. */
     private void watchRect(int i, RectF out) {
+        if (streamingDesign()) {
+            float x = (80 + (i - watchScroll.value) * 600) * k;
+            out.set(x, 650*k, x + 560*k, 790*k); return;
+        }
         float step = (WatchArt.W + WATCH_GAP) * k;
         float x = MARGIN * k + i * step - watchScroll.value * step, y = L_CARDS_TOP * k;
         out.set(x, y, x + WatchArt.W * k, y + WatchArt.H * k);
@@ -4103,6 +4114,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** Like a pick's card (same focus, shadow, sheen and rim), with the progress bar on the picture. */
     private void drawWatchCard(Canvas c, int i) {
+        if (streamingDesign()) { drawStreamingWatch(c, i); return; }
         watchRect(i, cell);
         if (cell.left > w || cell.right <= watchLeftEdge()) return;   // scrolled off screen
         WatchNext.Item it = watching.get(i);
@@ -4418,7 +4430,90 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
      * Background: the focused card's photo, heavily blurred and almost white; without it, a light gradient. At night,
      * the same photo almost black (or a dark gradient), drawn on top during the transition.
      */
+    private boolean streamingDesign() { return true; }
+    private int streamAccent() { return Prefs.theme().equals("gsz") ? 0xFF009DFF : tone(0xFF17191D, 0xFFF4F5F7); }
+    private void streamText(Canvas c, String value, float x, float y, float size, int color, float width) {
+        fitPaint.set(lCardTitle); fitPaint.setTextSize(size*k); fitPaint.setColor(color);
+        c.drawText(TextUtils.ellipsize(value, fitPaint, width*k, TextUtils.TruncateAt.END).toString(), x*k, y*k, fitPaint);
+    }
+    private void streamBox(Canvas c, RectF r, int color, boolean focused) {
+        fill.setShader(null); fill.setColor(color); c.drawRoundRect(r, 24*k, 24*k, fill);
+        rim.setShader(null); rim.setColor(focused ? streamAccent() : tone(0xFFCED2D8, 0xFF303941));
+        rim.setStrokeWidth((focused ? 4 : 1.5f)*k); c.drawRoundRect(r, 24*k, 24*k, rim);
+    }
+    private void drawStreamingSky(Canvas c) {
+        c.drawColor(tone(0xFFF5F6F8, 0xFF050709));
+        if (Prefs.theme().equals("gsz")) {
+            fill.setShader(new LinearGradient(0,0,w,h,new int[]{0xFF02070D,0xFF001C32,0xFF020508},null,Shader.TileMode.CLAMP));
+            c.drawRect(screen,fill); fill.setShader(null);
+        }
+    }
+    private void drawStreamingHome(Canvas c) {
+        applyTone(); layoutCards();
+        int ink=tone(L_INK,WHITE), dim=tone(0xFF59616D,0xFFB8C0CA), accent=streamAccent();
+        rim.setShader(null); rim.setColor(accent); rim.setStrokeWidth(5*k);
+        c.drawRoundRect(new RectF(80*k,45*k,144*k,100*k),13*k,13*k,rim);
+        c.drawLine(100*k,32*k,111*k,44*k,rim); c.drawLine(126*k,32*k,114*k,44*k,rim);
+        streamText(c,"▶",99,85,31,accent,43);
+        streamText(c,"GSZ",160,94,56,ink,160); streamText(c,"TV",298,94,56,accent,100);
+        if (Prefs.theme().equals("gsz")) streamText(c,"GSZ EDITION",163,122,14,accent,240);
+        String[] names={"Início","Filmes","Séries"};
+        for(int i=0;i<3;i++) {
+            RectF r=topRects[i]; boolean on=i==tab;
+            if(on) streamBox(c,r,accent,zone==Z_TOP && topIndex==i);
+            fitPaint.set(lTab); fitPaint.setColor(on ? (Prefs.theme().equals("gsz") ? WHITE : tone(WHITE,L_INK)) : ink);
+            c.drawText(names[i],r.centerX()-fitPaint.measureText(names[i])/2,r.centerY()+Ui.halfCap(fitPaint),fitPaint);
+        }
+        streamText(c,clockText,1730,85,28,ink,110);
+        RectF heroBox=new RectF(80*k,154*k,1840*k,560*k);
+        Recs.Pick pick=cards.isEmpty()?null:cards.get(Math.min(cardIndex,cards.size()-1));
+        streamBox(c,heroBox,tone(0xFFE7EAF0,0xFF0A1520),zone==Z_CARDS);
+        if(pick!=null) {
+            Backdrop art=recs.backdrop(pick);
+            if(art!=null && art.wide!=null) coverImage(c,art.wide,art.wideShader,heroBox,24*k,1);
+        }
+        c.save(); android.graphics.Path heroClip = new android.graphics.Path();
+        heroClip.addRoundRect(heroBox,24*k,24*k,android.graphics.Path.Direction.CW); c.clipPath(heroClip);
+        int solid=tone(0xFFF2F4F7,0xFF030A12);
+        fill.setShader(new LinearGradient(80*k,0,1500*k,0,new int[]{solid,solid,solid & 0x00FFFFFF},new float[]{0,.28f,1},Shader.TileMode.CLAMP));
+        c.drawRect(heroBox,fill); fill.setShader(null); c.restore();
+        streamText(c,pick==null?"Seu cinema começa aqui":pick.title,140,260,58,ink,880);
+        streamText(c,pick==null?"GSZ TV • Seus aplicativos em um só lugar":pick.meta,140,312,25,Prefs.theme().equals("gsz")?0xFF79CCFF:dim,960);
+        streamText(c,pick==null?"Configure a chave TMDB para receber destaques.":pick.pkg==null?"Instale um aplicativo compatível para assistir • ◀ ▶ mais títulos":"Pressione OK para abrir • ◀ ▶ para ver mais títulos",140,374,24,dim,1000);
+        if(pick!=null && pick.pkg!=null) {
+            RectF play=new RectF(140*k,434*k,388*k,504*k);
+            streamBox(c,play,accent,zone==Z_CARDS);
+            streamText(c,"▶  Assistir",178,480,27,Prefs.theme().equals("gsz")?WHITE:tone(WHITE,L_INK),220);
+            streamText(c,(cardIndex+1)+" / "+cards.size(),1660,520,22,ink,120);
+        }
+        streamText(c,"Continuar assistindo",80,620,34,ink,1000);
+        if(watching.isEmpty()) streamText(c,watchAllowed?"Seus títulos em andamento aparecerão aqui.":"Ative Continuar assistindo nas configurações para permitir o acesso.",80,710,23,dim,1700);
+        else {
+            c.save(); c.clipRect(55*k,635*k,w,810*k);
+            for(int i=0;i<watching.size();i++) drawStreamingWatch(c,i);
+            c.restore();
+        }
+        streamText(c,"Meus apps",80,862,34,ink,1000);
+    }
+    private void drawStreamingWatch(Canvas c, int i) {
+        watchRect(i,cell); if(cell.left>w || cell.right<0) return;
+        WatchNext.Item it=watching.get(i); float x=cell.left/k, y=cell.top/k;
+        streamBox(c,cell,tone(0xFFFFFFFF,0xFF0E141B),zone==Z_WATCH && watchIndex==i);
+        Bitmap art=watchArt.get(it.pictureUri,it.pictureKey,it.bannerKey,it.pkg);
+        if(art!=null) {
+            tmp.set(cell.left+2*k,cell.top+2*k,cell.left+210*k,cell.bottom-2*k);
+            roundImage(c,art,watchArt.shader(art),tmp,22*k);
+        }
+        streamText(c,it.title,x+235,y+52,25,tone(L_INK,WHITE),300);
+        String meta=it.episode==null?appName(it):it.episode;
+        streamText(c,meta,x+235,y+88,20,tone(L_DIM,0xFFABB4BF),300);
+        tmp.set((x+235)*k,(y+114)*k,(x+530)*k,(y+121)*k);
+        fill.setColor(tone(0xFFE0E4E9,0xFF303941)); c.drawRoundRect(tmp,4*k,4*k,fill);
+        if(it.progress()>=0) { tmp.right=tmp.left+tmp.width()*it.progress(); fill.setColor(streamAccent()); c.drawRoundRect(tmp,4*k,4*k,fill); }
+    }
+
     private void drawLightSky(Canvas c) {
+        if (streamingDesign()) { drawStreamingSky(c); return; }
         long up = SystemClock.uptimeMillis();
         float e = bgFadeAt == 0 ? 1 : fadeEase(bgFadeAt, up);
         boolean fading = bgFadeAt != 0;
@@ -4526,6 +4621,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     }
 
     private void drawLightTop(Canvas c) {
+        if (streamingDesign()) { drawStreamingHome(c); return; }
         applyTone();
         if (clockMode()) {
             titleRight = 0;
@@ -4728,6 +4824,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** Wi-Fi/Ethernet, Bluetooth (when something is connected) and a USB drive, at the top left. */
     private void drawStatusIcons(Canvas c) {
+        if (streamingDesign()) return;
         if (!Prefs.statusIcons()) return;
         float height = L_STATUS * k, gap = L_STATUS_GAP * k;
         int color = Ui.alpha(tone(L_INK, 0xEBFFFFFF), 0.85f);
@@ -4757,6 +4854,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private boolean moveLight(int dx, int dy) {
         switch (zone) {
             case Z_SHELF:
+                if (dy < 0 && !watching.isEmpty()) { zone = Z_WATCH; break; }
                 // Up from an empty shelf too: move()'s older zones (the hero, the corner capsule) aren't drawn any more.
                 if (dy >= 0) return false;
                 if (!picksMode()) {
@@ -4789,7 +4887,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                     zone = Z_TOP;
                     topIndex = tab;     // as on Apple TV: moving up to the tabs focuses the selected tab
                 } else {
-                    zone = Z_SHELF;
+                    zone = watching.isEmpty() ? Z_SHELF : Z_WATCH;
                     if (!shelf.isEmpty()) shelfIndex = nearest(tileRects, tileRects.length, cardRects[cardIndex].centerX());
                 }
                 break;
@@ -4799,6 +4897,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                     if (next == watchIndex) return true;
                     watchIndex = next;
                 } else if (dy < 0) {
+                    if (!cards.isEmpty()) { zone = Z_CARDS; break; }
                     if (lightButtons.isEmpty()) return true;
                     zone = Z_TOP;
                     topIndex = 3;
