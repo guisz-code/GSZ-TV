@@ -82,13 +82,17 @@ final class Updates {
     static void schedule(Context c) {
         if (!takesReleases(c)) return;
         JobScheduler scheduler = c.getSystemService(JobScheduler.class);
-        if (scheduler == null || scheduler.getPendingJob(JOB) != null) return;
+        if (scheduler == null) return;
+        if (!Prefs.autoUpdates()) { scheduler.cancel(JOB); return; }
+        JobInfo existing = scheduler.getPendingJob(JOB);
+        if (existing != null && existing.getIntervalMillis() == 24 * 3600_000L) return;
+        scheduler.cancel(JOB);
         PersistableBundle extras = new PersistableBundle();
         extras.putString("action", ModeJob.UPDATE);
         // A check that failed (no network, or GitHub's hourly limit on an address many homes share) tries again in
         // 30 minutes, then 1 hour, 2…
         scheduler.schedule(new JobInfo.Builder(JOB, new ComponentName(c, ModeJob.class)).setExtras(extras)
-                .setPeriodic(WEEK).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setPersisted(true)
+                .setPeriodic(24 * 3600_000L).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setPersisted(true)
                 .setBackoffCriteria(30 * 60_000L, JobInfo.BACKOFF_POLICY_EXPONENTIAL).build());
     }
 

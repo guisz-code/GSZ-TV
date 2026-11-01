@@ -57,6 +57,8 @@ final class Recs {
         int mine;               // Trakt: PROGRESS, LIKED (watchlist, recommended) or 0 (TMDB's)
         boolean detailed;
         java.io.File photo;     // one of your own photos (Photos): no title, no caption
+        String externalId;      // catalogue addon identity; never sent to TMDB
+        WatchNext.Item externalArt;
     }
 
     interface Listener { void onRecs(); }
@@ -71,11 +73,10 @@ final class Recs {
     private static final String POSTERS = "https://image.tmdb.org/t/p/w500";
     /** TMDB's Animation genre (movies and shows: cartoons and anime), left out with hide_animation=true. */
     private static final int ANIMATION = 16;
-    private static final long LIST_EVERY = 6 * 3600_000L;
     /** How often Trakt is asked whether the account changed (marked watched, the watchlist): one small request. */
     private static final long TRAKT_EVERY = 10 * 60_000L;
     /** Bump when what is saved for each title changes (the saved list is discarded and fetched again). */
-    private static final int CACHE_VERSION = 6;   // 6: lists of up to POOL + TRAKT_MAX
+    private static final int CACHE_VERSION = 7;   // providerless TMDB picks can keep their artwork too
     /** TMDB's titles in the list (trending, then the new releases), as on main. */
     private static final int POOL = 24;
     /** Trakt's titles in the list: about what the tabs show of them (now(): up to 2 in 5 in progress, 3 in 5 liked). */
@@ -133,6 +134,7 @@ final class Recs {
     private static final Map<String, String> SERVICE_NAME = new HashMap<>();
     static {
         SERVICE_NAME.put("stremio", "Stremio");
+        SERVICE_NAME.put("nuvio", "Nuvio");
         SERVICE_NAME.put("netflix", "Netflix");
         SERVICE_NAME.put("prime", "Prime Video");
         SERVICE_NAME.put("disney", "Disney+");
@@ -192,6 +194,7 @@ final class Recs {
     private final Map<String, Poster> posters = new LinkedHashMap<>();   // narrow-card portraits, same keys as images
     private final Map<String, Backdrop> images = new LinkedHashMap<>(16, 0.75f, true);   // this hour's, built and ready to draw
     private final java.util.Set<String> pending = new java.util.HashSet<>();
+    private final Map<String, Long> imageFailures = new HashMap<>();
     private volatile List<Pick> picks = new ArrayList<>();
     private volatile int period = -1;
     private volatile long listAt;
@@ -199,6 +202,9 @@ final class Recs {
     private volatile String error = "";
     private volatile boolean light;     // light design: builds only the cards (all three tabs' cards fit in memory)
     private volatile long failedAt, keyStamp, traktStamp, linkRetryAt;
+    private int failures;
+    private long sourceCheckedAt, cachedSourceStamp;
+    private int sourcePrefs = -1;
     private volatile String listLanguage = "";   // language used for the saved titles, genres and texts
     private volatile String traktActivity = "";  // Trakt's last change when the picks were fetched
     private volatile long traktCheckedAt;
@@ -337,7 +343,7 @@ final class Recs {
                 (p.mine == PROGRESS ? progress : p.mine == LIKED ? liked : list).add(p);
             }
         }
-        long hour = System.currentTimeMillis() / 3600_000L;
+        long hour = RecommendationPolicy.rotation(System.currentTimeMillis());
         // Trakt first: what they're in the middle of (as Trakt orders it), up to 2 in 5 cards, then their watchlist and
         // Trakt's recommendations, up to 3 in 5 with those; then TMDB's. A new set each hour; Trakt's fill the rest when
         // TMDB's run short. Never two from the same franchise ("Law & Order" and "Law & Order: Special…").
@@ -385,6 +391,8 @@ final class Recs {
         synchronized (images) {
             Backdrop b = images.get(key);
             if (b != null) return b;
+            Long failed = imageFailures.get(key);
+            if (failed != null && !RecommendationPolicy.canRetry(failed, 4, System.currentTimeMillis())) return null;
             if (!pending.add(key)) return null;
         }
         io.execute(() -> {
@@ -408,6 +416,7 @@ final class Recs {
     /** With a key: fetches the list if stale or the time of day (morning/afternoon/night) changed; then the details. */
     void refreshIfStale() {
         if (!hasKey(context) || fetching) return;
+        if (light && !Prefs.topContent().equals(Prefs.TOP_PICKS) && !Prefs.topContent().equals(Prefs.TOP_BOTH)) return;
         long now = System.currentTimeMillis();
         long stamp = sourceStamp();   // a new key, country, animation choice or installed streaming-app set refetches
         boolean newKey = stamp != keyStamp;
@@ -415,13 +424,13 @@ final class Recs {
         // 11 to 12L has no Trakt, and must not take the saved list for another account's.
         long trakt = Trakt.available() ? Trakt.stamp(context) : traktStamp;
         boolean newTrakt = trakt != traktStamp;
-        long sinceFail = now - failedAt;    // negative = the clock went back: don't wait
-        if (!newKey && !newTrakt && failedAt != 0 && sinceFail >= 0 && sinceFail < 10 * 60_000L) return;
+        if (!newKey && !newTrakt && !RecommendationPolicy.canRetry(failedAt, failures, now)) return;
         int p = period(now);
-        boolean stale = newKey || p != period || now - listAt > LIST_EVERY || now < listAt || picks.isEmpty()
+        boolean stale = newKey || RecommendationPolicy.expired(listAt, now) || picks.isEmpty()
                 || !listLanguage.equals(Ui.language);
         boolean missing = false;
-        for (Pick pick : wanted()) missing |= !pick.detailed || !hasImage(pick) || needsLink(pick);
+        for (Pick pick : wanted()) missing |= !pick.detailed
+                || pick.backdrop != null && !hasImage(pick) && imageRetryReady(pick, now) || needsLink(pick);
         boolean checkTrakt = !stale && !newTrakt && Trakt.signedIn(context) && (now - traktCheckedAt > TRAKT_EVERY || now < traktCheckedAt);
         if (!stale && !missing && !checkTrakt && !newTrakt) return;
         keyStamp = stamp;
@@ -455,7 +464,7 @@ final class Recs {
                     tried++;
                     try {
                         if (!pick.detailed) fetchDetails(pick);
-                        if (pick.pkg != null) download(pick);
+                        if (pick.backdrop != null && imageRetryReady(pick, System.currentTimeMillis())) download(pick);
                     } catch (Exception e) {
                         failures++;
                         last = e.getMessage() == null ? e.toString() : e.getMessage();
@@ -466,9 +475,11 @@ final class Recs {
                 if (tried > 0 && failures == tried) throw new IOException(last);
                 error = "";
                 failedAt = 0;
+                failures = 0;
             } catch (Exception e) {
                 error = e.getMessage() == null ? e.toString() : e.getMessage();
                 failedAt = System.currentTimeMillis();
+                failures++;
                 AppLog.w("recommendations: " + error);
             } finally {
                 fetching = false;
@@ -567,6 +578,7 @@ final class Recs {
 
     /** Movies and shows are numbered separately on TMDB: a pick is identified by type + number. */
     static String key(Pick p) {
+        if (p.externalId != null) return "nuvio:" + p.externalId;
         return p.kind + ":" + p.id;
     }
 
@@ -593,6 +605,24 @@ final class Recs {
             }
         }
         generic |= services.isEmpty();
+        if (generic) {
+            // First paint needs just the two small trending lists, not 40 sequential detail requests.
+            // Details and artwork are fetched only for the titles in the three visible tabs.
+            List<Pick> movies = new ArrayList<>(), shows = new ArrayList<>();
+            for (String kind : new String[] {"movie", "tv"}) {
+                JSONArray hot = get("/trending/" + kind + "/week?language=" + lang()).getJSONArray("results");
+                List<Pick> target = kind.equals("movie") ? movies : shows;
+                for (int i = 0; i < Math.min(hot.length(), POOL); i++) add(target, hot.getJSONObject(i), kind);
+            }
+            List<Pick> combined = new ArrayList<>();
+            alternate(combined, new HashSet<>(), movies, shows, POOL);
+            if (combined.isEmpty()) throw new IOException("TMDB returned no recommendations");
+            picks = combined;
+            period = p; listAt = System.currentTimeMillis(); listLanguage = Ui.language;
+            traktStamp = Trakt.stamp(context);
+            notifyListeners();
+            return;
+        }
         // Signed in to Trakt: what they're in the middle of comes first, then their watchlist and Trakt's
         // recommendations; what they've watched stays out. Trakt failing leaves the picks as they'd be without it.
         // The list keeps the account it was made with (0: none, and always outside :home), so a list the screensaver's
@@ -960,10 +990,22 @@ final class Recs {
     }
 
     private long sourceStamp() {
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (sourceCheckedAt != 0 && sourcePrefs == Prefs.version && now - sourceCheckedAt < 5 * 60_000L) return cachedSourceStamp;
         long stamp = ((key().hashCode() * 31L + REGION.hashCode()) * 31L + (Config.HIDE_ANIMATION ? 1 : 0)) * 31L + Config.PLEX_URL.hashCode();
         if (stremio()) stamp = stamp * 31L + 1;   // off: the same stamp as before, so nothing is fetched again
         for (String[] service : SERVICES) stamp = stamp * 31L + (installed(service[2]) ? service[2].hashCode() : 0);
+        sourceCheckedAt = now; sourcePrefs = Prefs.version; cachedSourceStamp = stamp;
         return stamp;
+    }
+
+    void invalidateSources() { sourceCheckedAt = 0; }
+
+    private boolean imageRetryReady(Pick p, long now) {
+        synchronized (images) {
+            Long at = imageFailures.get(p.backdrop);
+            return at == null || RecommendationPolicy.canRetry(at, 4, now);
+        }
     }
 
     // MARK: - Watchmode (the title's own page in its app; the free plan's web addresses are what the apps open)
@@ -1209,6 +1251,7 @@ final class Recs {
             Poster poster = forLight ? loadPoster(p) : null;
             synchronized (images) {
                 images.put(p.backdrop, backdrop);
+                imageFailures.remove(p.backdrop);
                 if (poster != null) posters.put(p.backdrop, poster);
                 while (images.size() > (forLight ? Prefs.cards() + 7 : 4)) images.remove(images.keySet().iterator().next());
                 posters.keySet().retainAll(images.keySet());
@@ -1217,6 +1260,10 @@ final class Recs {
         } catch (IOException | RuntimeException | OutOfMemoryError e) {
             //noinspection ResultOfMethodCallIgnored
             f.delete();
+            synchronized (images) {
+                if (imageFailures.size() >= 64) imageFailures.clear();
+                imageFailures.put(p.backdrop, System.currentTimeMillis());
+            }
             AppLog.w("recommendation image: " + e.getMessage());
         }
     }

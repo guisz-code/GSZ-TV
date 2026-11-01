@@ -270,6 +270,7 @@ public class SettingsActivity extends Activity {
                 // Redrawn only when something shown changed: also My Photos' count (Immich's arrive while it shows) and
                 // the minute (the notices' "{n} min ago").
                 String stamp = state.toString() + recs.toString() + updates.toString() + ":" + sleepLeft + ":" + whyNow
+                        + ":" + (screen == PICKS ? NuvioCatalog.get(getContext()).summary() : "")
                         + ":" + hasKey + ":" + pendingAt + ":" + stalled + ":" + busy() + ":" + updatesValue()
                         + ":" + (Trakt.available() ? traktValue() : "") + ":" + System.currentTimeMillis() / 60_000
                         + ":" + (screen == HOME_SETTINGS ? Photos.files(getContext()).size() : 0);
@@ -1021,6 +1022,7 @@ public class SettingsActivity extends Activity {
             l.add("Solana");
             if (dollar()) l.add(Ui.tr("Dollar"));
             l.add(Ui.tr("TMDB key"));
+            l.add("Atualizações automáticas");
             l.add(Ui.tr("Updates"));
             return l.toArray(new String[0]);
         }
@@ -1031,7 +1033,7 @@ public class SettingsActivity extends Activity {
         }
 
         private int keyRow() {
-            return updatesRow() - 1;
+            return updatesRow() - 2;
         }
 
         /** The TMDB key row: "Not set", or the key's last 4 characters (all that's ever shown of it). */
@@ -1041,19 +1043,46 @@ public class SettingsActivity extends Activity {
         }
 
         private String[] picksLabels() {
-            return Trakt.available() ? new String[] {Ui.tr("Picks per tab"), Ui.tr("Picks from"), "Trakt"}
-                    : new String[] {Ui.tr("Picks per tab"), Ui.tr("Picks from")};
+            return Trakt.available() ? new String[] {Ui.tr("Picks per tab"), Ui.tr("Picks from"), "Catálogos do Nuvio", "Trakt"}
+                    : new String[] {Ui.tr("Picks per tab"), Ui.tr("Picks from"), "Catálogos do Nuvio"};
         }
 
         private String[] picksValues() {
             String from = someServicesOff ? Ui.tr("services|Some") : Ui.tr("services|All");
-            return Trakt.available() ? new String[] {String.valueOf(Prefs.cards()), from, traktValue()}
-                    : new String[] {String.valueOf(Prefs.cards()), from};
+            String catalog = NuvioCatalog.get(getContext()).summary();
+            return Trakt.available() ? new String[] {String.valueOf(Prefs.cards()), from, catalog, traktValue()}
+                    : new String[] {String.valueOf(Prefs.cards()), from, catalog};
         }
 
         /** The Trakt row on the Picks screen (the last one), only with a Trakt API app in config.properties; else -1. */
         private static int traktRow() {
-            return Trakt.available() ? 2 : -1;
+            return Trakt.available() ? 3 : -1;
+        }
+
+        private void askNuvioCatalogs() {
+            EditText field = new EditText(activity);
+            field.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                    | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+            field.setHint("https://…/manifest.json");
+            field.setText(Prefs.nuvioCatalogs());
+            field.setMinLines(2);
+            AlertDialog dialog = new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setTitle("Catálogos do Nuvio")
+                    .setMessage("Cole o mesmo link do addon de catálogo que você usa no Nuvio, um por linha (até 4). "
+                            + "Os títulos serão combinados com o TMDB. Selecione um cartão para abrir no Nuvio. "
+                            + "O Nuvio oficial não permite importar automaticamente sua configuração; apenas addons com catálogo de filmes/séries funcionam.")
+                    .setView(field)
+                    .setPositiveButton(Ui.tr("Save"), null)
+                    .setNeutralButton("Remover catálogos", (d, which) -> { Prefs.setNuvioCatalogs(""); invalidate(); })
+                    .setNegativeButton(Ui.tr("Cancel"), null).create();
+            dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String urls = NuvioCatalog.cleanSources(field.getText().toString());
+                if (urls == null) { field.setError("Use até 4 links HTTPS completos terminando em /manifest.json."); return; }
+                Prefs.setNuvioCatalogs(urls);
+                NuvioCatalog.get(getContext()).refreshIfStale();
+                dialog.dismiss(); invalidate();
+            }));
+            dialog.show();
         }
 
         private String traktValue() {
@@ -1119,8 +1148,9 @@ public class SettingsActivity extends Activity {
             if (HOME_ROW >= 0) v[HOME_ROW] = onOff(HomeAssistant.on(getContext()));
             v[QUOTES_ROW] = onOff(Prefs.quotes());
             // No quotes widget, nowhere to show prices: the coins read as off (and stay locked) until it is back on.
-            for (int i = COIN_ROWS; i < v.length - 2; i++) v[i] = onOff(Prefs.quotes() && Prefs.coin(i - COIN_ROWS));
-            v[v.length - 2] = keyValue();
+            for (int i = COIN_ROWS; i < v.length - 3; i++) v[i] = onOff(Prefs.quotes() && Prefs.coin(i - COIN_ROWS));
+            v[v.length - 3] = keyValue();
+            v[v.length - 2] = Prefs.autoUpdates() ? "Verificar e baixar diariamente" : "Manual";
             v[v.length - 1] = updatesValue();
             return v;
         }
@@ -2365,6 +2395,11 @@ public class SettingsActivity extends Activity {
             } else if (screen == HOME_SETTINGS && pickScroll + focus == PHOTOS_ROW) {
                 askRemovePhotos();
                 return;
+            } else if (screen == HOME_SETTINGS && pickScroll + focus == updatesRow() - 1) {
+                Prefs.setAutoUpdates(!Prefs.autoUpdates());
+                Updates.schedule(getContext());
+                invalidate();
+                return;
             } else if (screen == HOME_SETTINGS && pickScroll + focus == updatesRow()) {
                 updateNow();
                 return;
@@ -2392,6 +2427,9 @@ public class SettingsActivity extends Activity {
                 return;
             } else if (screen == POWER) {
                 activatePower();
+            } else if (screen == PICKS && focus == 2) {
+                askNuvioCatalogs();
+                return;
             } else if (screen == PICKS && focus == traktRow()) {
                 traktOk();
                 invalidate();

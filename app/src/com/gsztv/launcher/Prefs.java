@@ -270,6 +270,10 @@ final class Prefs {
     }
 
     static void setTopContent(String v) { put("topContent", v); }
+    static String nuvioCatalogs() { return sp().getString("nuvioCatalogs", ""); }
+    static void setNuvioCatalogs(String urls) { put("nuvioCatalogs", urls); }
+    static boolean autoUpdates() { return sp().getBoolean("autoUpdates", true); }
+    static void setAutoUpdates(boolean on) { put("autoUpdates", on); }
 
     /** Apps left out of Continue Watching (Settings), by package. */
     static Set<String> watchOff() { return new HashSet<>(sp().getStringSet("watchOff", new HashSet<>())); }

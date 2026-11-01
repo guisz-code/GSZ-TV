@@ -115,7 +115,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private static final ExecutorService LOADER = Executors.newSingleThreadExecutor();
     // Light design (the L_ constants): title, tab bar, three recommendation cards and the shelf.
     // The tab bar is a 68 px capsule; the cards sit on the 5-column grid (the wide one spans 3).
-    private static final float L_TITLE_BASE = 130, L_TABBAR_TOP = 158, L_TABBAR_H = 68, L_CARDS_TOP = 262, L_CARD_H = 442;
+    private static final float L_TITLE_BASE = 130, L_TABBAR_TOP = 158, L_TABBAR_H = 68, L_CARDS_TOP = 154, L_CARD_H = 350;
     private static final float WATCH_GAP = 40;
     private static final float L_TALL_W = 320, L_CARD_GAP = 40, L_BUTTON = 68, L_BUTTON_GAP = 20, L_BUTTON_CY = 103;
     private static final float L_STATUS = 25, L_STATUS_GAP = 22;
@@ -132,6 +132,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private final Scene scene = new Scene();
     private final HomeData data;
     private final Recs recs;
+    private final NuvioCatalog nuvio;
     private final NowPlaying.Watch playing;
     private final Click click;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -594,11 +595,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             wake();
             playing.start();   // the listener allowed after the screen showed (a no-op once watching)
             data.refreshIfStale();
-            recs.refreshIfStale();
+            if (picksMode()) { recs.refreshIfStale(); nuvio.refreshIfStale(); }
             checkNotices();
             updatePalette();
             checkNight(true);
-            updatePicks();      // new ones every hour
+            if (picksMode() && zone != Z_CARDS) updatePicks(); // don't replace titles under the remote's focus
             updateSleep();
             handler.postDelayed(this, 15_000);
         }
@@ -609,6 +610,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         activity = a;
         data = HomeData.get(a);
         recs = Recs.get(a);
+        nuvio = NuvioCatalog.get(a);
         playing = new NowPlaying.Watch(a, this::onPlaying);
         click = new Click(a);
         shelfVisible = HomeApps.shelfVisible(a);
@@ -697,8 +699,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         lastStep = 0;
         data.addListener(this);
         recs.addListener(this);
+        nuvio.addListener(this);
         data.refreshIfStale();
-        recs.refreshIfStale();
+        if (picksMode()) { recs.refreshIfStale(); nuvio.refreshIfStale(); }
         Photos.importInbox(getContext(), ownReady);   // photos a computer just sent
         ImmichPhotos.syncIfDue(getContext(), ownReady);   // or a new choice from the Immich server, every 6 hours
         if (tvInputs != null) tvInputs.registerCallback(inputCallback, handler);
@@ -743,6 +746,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         playing.stop();
         data.removeListener(this);
         recs.removeListener(this);
+        nuvio.removeListener(this);
         if (tvInputs != null) tvInputs.unregisterCallback(inputCallback);
         stopStatus();
     }
@@ -2682,6 +2686,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     private void appsChanged() {
         appsStale = true;
+        recs.invalidateSources();
         if (running) reloadSoon();
     }
 
@@ -3246,7 +3251,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             r = focusedCell;
         } else if (zone == Z_HERO) {
             Recs.Pick p = currentPick();
-            if (p == null || p.pkg == null) return;
+            if (p == null) return;
+            if (p.pkg == null) { showToast("Instale um aplicativo de streaming compatível para assistir a este título."); return; }
             it = HomeApps.app(p.pkg, Recs.serviceName(p), p.link);
             r = heroButton;
         } else if (zone == Z_STATUS) {
@@ -3912,7 +3918,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** The cards side by side: the one at cardIndex wide, the others tall, sliding as `cardOpen` moves. */
     private void layoutCards() {
-        if (streamingDesign()) {
+        if (streamingDesign() && cards.isEmpty()) {
             for (int i = 0; i < cardRects.length; i++)
                 cardRects[i].set(i == cardIndex ? 80*k : -4000*k, 154*k, i == cardIndex ? 1840*k : -3900*k, 560*k);
             return;
@@ -3939,19 +3945,27 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             heroDirty = true;
             return;
         }
-        List<Recs.Pick> list = recs.now(TAB_KIND[tab]);
+        List<Recs.Pick> list = NuvioCatalog.mix(recs.now(TAB_KIND[tab]), nuvio.now(TAB_KIND[tab]), cardSlots);
+        int nextIndex = Math.min(cardIndex, Math.max(0, list.size() - 1));
+        if (zone == Z_CARDS && !cards.isEmpty()) {
+            String focused = Recs.key(cards.get(Math.min(cardIndex, cards.size()-1)));
+            nextIndex = -1;
+            for (int i=0;i<list.size();i++) if (focused.equals(Recs.key(list.get(i)))) { nextIndex=i; break; }
+            if (nextIndex < 0) return; // new cached selection waits until the person leaves the row
+        }
         if (!samePicks(list, cards)) {
             cards = list;
-            cardIndex = Math.min(cardIndex, Math.max(0, list.size() - 1));
+            cardIndex = nextIndex;
             if (zone == Z_CARDS && list.isEmpty()) zone = Z_SHELF;
             retarget(false);   // the wide card and the scroll follow the clamped index, whatever has the focus
         }
+        cards = list; // refreshed addon artwork/metadata may change while the title identities stay the same
         // This tab's cards, then the first three of the others (what shows at first): switching tabs is quick, and
         // the images stay under Recs's cap in memory.
         for (Recs.Pick p : list) recs.backdrop(p);
         for (int t = 0; t < TAB_KIND.length; t++) {
             if (t == tab) continue;
-            List<Recs.Pick> other = recs.now(TAB_KIND[t]);
+            List<Recs.Pick> other = NuvioCatalog.mix(recs.now(TAB_KIND[t]), nuvio.now(TAB_KIND[t]), cardSlots);
             for (int i = 0; i < Math.min(3, other.size()); i++) recs.backdrop(other.get(i));
         }
         // Picks bring their own background; without them (no TMDB key), your photo if there is one.
@@ -4431,6 +4445,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
      * the same photo almost black (or a dark gradient), drawn on top during the transition.
      */
     private boolean streamingDesign() { return true; }
+    private final RectF streamLogo = new RectF(), streamHero = new RectF(), streamPlay = new RectF();
+    private final android.graphics.Path streamClip = new android.graphics.Path();
+    private LinearGradient streamSkyGradient, streamHeroGradient;
+    private int streamSkyW, streamSkyH, streamHeroColor;
+    private float streamHeroK;
     private int streamAccent() { return Prefs.theme().equals("gsz") ? 0xFF009DFF : tone(0xFF17191D, 0xFFF4F5F7); }
     private void streamText(Canvas c, String value, float x, float y, float size, int color, float width) {
         fitPaint.set(lCardTitle); fitPaint.setTextSize(size*k); fitPaint.setColor(color);
@@ -4444,7 +4463,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void drawStreamingSky(Canvas c) {
         c.drawColor(tone(0xFFF5F6F8, 0xFF050709));
         if (Prefs.theme().equals("gsz")) {
-            fill.setShader(new LinearGradient(0,0,w,h,new int[]{0xFF02070D,0xFF001C32,0xFF020508},null,Shader.TileMode.CLAMP));
+            if (streamSkyGradient == null || streamSkyW != w || streamSkyH != h) {
+                streamSkyW = w; streamSkyH = h;
+                streamSkyGradient = new LinearGradient(0,0,w,h,new int[]{0xFF02070D,0xFF001C32,0xFF020508},null,Shader.TileMode.CLAMP);
+            }
+            fill.setShader(streamSkyGradient);
             c.drawRect(screen,fill); fill.setShader(null);
         }
     }
@@ -4452,12 +4475,13 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         applyTone(); layoutCards();
         int ink=tone(L_INK,WHITE), dim=tone(0xFF59616D,0xFFB8C0CA), accent=streamAccent();
         rim.setShader(null); rim.setColor(accent); rim.setStrokeWidth(5*k);
-        c.drawRoundRect(new RectF(80*k,45*k,144*k,100*k),13*k,13*k,rim);
+        streamLogo.set(80*k,45*k,144*k,100*k);
+        c.drawRoundRect(streamLogo,13*k,13*k,rim);
         c.drawLine(100*k,32*k,111*k,44*k,rim); c.drawLine(126*k,32*k,114*k,44*k,rim);
         streamText(c,"▶",99,85,31,accent,43);
         streamText(c,"GSZ",160,94,56,ink,160); streamText(c,"TV",298,94,56,accent,100);
         if (Prefs.theme().equals("gsz")) streamText(c,"GSZ EDITION",163,122,14,accent,240);
-        String[] names={"Início","Filmes","Séries"};
+        String[] names=tabs();
         for(int i=0;picksMode() && i<3;i++) {
             RectF r=topRects[i]; boolean on=i==tab;
             if(on) streamBox(c,r,accent,zone==Z_TOP && topIndex==i);
@@ -4465,23 +4489,29 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             c.drawText(names[i],r.centerX()-fitPaint.measureText(names[i])/2,r.centerY()+Ui.halfCap(fitPaint),fitPaint);
         }
         streamText(c,clockText,1730,85,28,ink,110);
-        if (clockMode()) drawClock(c); if (picksMode()) { RectF heroBox=new RectF(80*k,154*k,1840*k,560*k);
+        if (clockMode()) drawClock(c); if (picksMode() && !cards.isEmpty()) {
+            for (int i=0;i<Math.min(cardSlots,cards.size());i++) drawLightCard(c,i);
+        } if (picksMode() && cards.isEmpty()) { RectF heroBox=streamHero; heroBox.set(80*k,154*k,1840*k,560*k);
         Recs.Pick pick=cards.isEmpty()?null:cards.get(Math.min(cardIndex,cards.size()-1));
         streamBox(c,heroBox,tone(0xFFE7EAF0,0xFF0A1520),zone==Z_CARDS);
         if(pick!=null) {
             Backdrop art=recs.backdrop(pick);
             if(art!=null && art.wide!=null) coverImage(c,art.wide,art.wideShader,heroBox,24*k,1);
         }
-        c.save(); android.graphics.Path heroClip = new android.graphics.Path();
-        heroClip.addRoundRect(heroBox,24*k,24*k,android.graphics.Path.Direction.CW); c.clipPath(heroClip);
+        c.save(); streamClip.rewind();
+        streamClip.addRoundRect(heroBox,24*k,24*k,android.graphics.Path.Direction.CW); c.clipPath(streamClip);
         int solid=tone(0xFFF2F4F7,0xFF030A12);
-        fill.setShader(new LinearGradient(80*k,0,1500*k,0,new int[]{solid,solid,solid & 0x00FFFFFF},new float[]{0,.28f,1},Shader.TileMode.CLAMP));
+        if (streamHeroGradient == null || streamHeroColor != solid || streamHeroK != k) {
+            streamHeroColor = solid; streamHeroK = k;
+            streamHeroGradient = new LinearGradient(80*k,0,1500*k,0,new int[]{solid,solid,solid & 0x00FFFFFF},new float[]{0,.28f,1},Shader.TileMode.CLAMP);
+        }
+        fill.setShader(streamHeroGradient);
         c.drawRect(heroBox,fill); fill.setShader(null); c.restore();
         streamText(c,pick==null?"Seu cinema começa aqui":pick.title,140,260,58,ink,880);
         streamText(c,pick==null?"GSZ TV • Seus aplicativos em um só lugar":pick.meta,140,312,25,Prefs.theme().equals("gsz")?0xFF79CCFF:dim,960);
         streamText(c,pick==null?"Configure a chave TMDB para receber destaques.":pick.pkg==null?"Instale um aplicativo compatível para assistir • ◀ ▶ mais títulos":"Pressione OK para abrir • ◀ ▶ para ver mais títulos",140,374,24,dim,1000);
         if(pick!=null && pick.pkg!=null) {
-            RectF play=new RectF(140*k,434*k,388*k,504*k);
+            RectF play=streamPlay; play.set(140*k,434*k,388*k,504*k);
             streamBox(c,play,accent,zone==Z_CARDS);
             streamText(c,"▶  Assistir",178,480,27,Prefs.theme().equals("gsz")?WHITE:tone(WHITE,L_INK),220);
             streamText(c,(cardIndex+1)+" / "+cards.size(),1660,520,22,ink,120);
@@ -4718,6 +4748,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         c.restore();
         Backdrop b = p == null ? null : recs.backdrop(p);
         Bitmap img = b == null ? null : b.wide;
+        if (p != null && p.externalArt != null) {
+            WatchNext.Item art = p.externalArt;
+            img = watchArt.get(art.pictureUri, art.pictureKey, art.bannerKey, NuvioCatalog.PACKAGE);
+        }
         Recs.Poster poster = recs.poster(p);
         float open = Ui.clamp(cardOpen[i].value);
         if (poster != null) {   // narrow: the poster; as the card widens the backdrop fades in over it
@@ -4725,7 +4759,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             if (back < 0.999f) coverImage(c, poster.bitmap, poster.shader, cell, r, 1);   // not once the backdrop covers it
             if (back > 0.001f) coverImage(c, img, b.wideShader, cell, r, back);
         } else if (img != null) {
-            coverImage(c, img, b.wideShader, cell, r, 1);
+            coverImage(c, img, b == null ? watchArt.shader(img) : b.wideShader, cell, r, 1);
         } else {
             fill.setShader(null);
             fill.setColor(tone(0xFFDADADF, 0xFF2C2C2E));
