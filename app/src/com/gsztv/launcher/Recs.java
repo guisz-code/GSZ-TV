@@ -332,7 +332,7 @@ final class Recs {
         Map<String, Boolean> have = new HashMap<>();   // one look per app, not per title (this runs every 15 s)
         for (Pick p : picks) {
             if ((kind == null || kind.equals(p.kind))
-                    && (!p.detailed || (p.pkg != null && have.computeIfAbsent(p.pkg, this::installed)
+                    && (!p.detailed || p.pkg == null || (have.computeIfAbsent(p.pkg, this::installed)
                     && (p.servicePkg == null || have.computeIfAbsent(p.servicePkg, this::installed))))) {   // app missing or switched off: skip
                 (p.mine == PROGRESS ? progress : p.mine == LIKED ? liked : list).add(p);
             }
@@ -577,19 +577,22 @@ final class Recs {
     // MARK: - TMDB
 
     private void fetchList(int p, Map<String, Pick> known) throws Exception {
-        // None of the services we know is on the TV (or hide_services hides them all): no region would change that.
+        // A projector often has no streaming app installed yet. It should still get a useful TMDB catalogue;
+        // cards without a matching app explain what to install when the person opens one.
         boolean any = false;
         for (String[] s : SERVICES) any |= installed(s[2]);
-        if (!any) throw new IOException(NO_KNOWN_APPS);
+        boolean generic = !any;
         // The services the TV has, by their TMDB ids in your region.
         Map<Integer, String[]> services = new HashMap<>();
-        JSONArray providers = get("/watch/providers/movie?language=" + lang() + "&watch_region=" + REGION).getJSONArray("results");
-        for (int i = 0; i < providers.length(); i++) {
-            JSONObject o = providers.getJSONObject(i);
-            String[] s = service(o.optString("provider_name"), o.optInt("provider_id"));
-            if (s != null && installed(s[2])) services.put(o.getInt("provider_id"), s);
+        if (any) {
+            JSONArray providers = get("/watch/providers/movie?language=" + lang() + "&watch_region=" + REGION).getJSONArray("results");
+            for (int i = 0; i < providers.length(); i++) {
+                JSONObject o = providers.getJSONObject(i);
+                String[] s = service(o.optString("provider_name"), o.optInt("provider_id"));
+                if (s != null && installed(s[2])) services.put(o.getInt("provider_id"), s);
+            }
         }
-        if (services.isEmpty()) throw new IOException(NO_APPS);
+        generic |= services.isEmpty();
         // Signed in to Trakt: what they're in the middle of comes first, then their watchlist and Trakt's
         // recommendations; what they've watched stays out. Trakt failing leaves the picks as they'd be without it.
         // The list keeps the account it was made with (0: none, and always outside :home), so a list the screensaver's
@@ -627,14 +630,14 @@ final class Recs {
                 } catch (Exception e) {
                     continue;
                 }
-                if (pick.pkg != null) (kind.equals("movie") ? hotMovies : hotShows).add(pick);
+                if (generic || pick.pkg != null) (kind.equals("movie") ? hotMovies : hotShows).add(pick);
             }
         }
         // 2. Recent releases on the TV's services: movies from the past year and shows with a new episode in the
         //    past 3 months.
-        JSONArray movies = get("/discover/movie?vote_count.gte=30&primary_release_date.gte=" + day(-365)
+        JSONArray movies = generic ? new JSONArray() : get("/discover/movie?vote_count.gte=30&primary_release_date.gte=" + day(-365)
                 + "&primary_release_date.lte=" + day(0) + common).getJSONArray("results");
-        JSONArray shows = get("/discover/tv?vote_count.gte=20&air_date.gte=" + day(-90) + "&air_date.lte=" + day(0)
+        JSONArray shows = generic ? new JSONArray() : get("/discover/tv?vote_count.gte=20&air_date.gte=" + day(-90) + "&air_date.lte=" + day(0)
                 + common).getJSONArray("results");
         List<Pick> newMovies = new ArrayList<>(), newShows = new ArrayList<>();
         for (int i = 0; i < movies.length(); i++) add(newMovies, movies.getJSONObject(i), "movie");
