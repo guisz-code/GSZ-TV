@@ -34,7 +34,7 @@ import java.security.spec.X509EncodedKeySpec;
 import javax.crypto.Cipher;
 
 /**
- * ADB client that talks to the TV itself (127.0.0.1:13111, open while debugging is on). It's what lets the app switch
+ * ADB client that talks to the TV itself (127.0.0.1:5555, open while debugging is on). It's what lets the app switch
  * the home screen and the screensaver, and turn off apps, without a computer. The first time, the TV asks
  * "Allow USB debugging?" and you accept with "Always allow". Only HomeMode uses it, and only with its own fixed
  * commands (nothing from outside).
@@ -72,10 +72,10 @@ final class Adb implements Closeable {
         KeyPair keys = keys(c);
         Socket s = new Socket();
         try {
-            s.connect(new InetSocketAddress("127.0.0.1", 13111), 3000);
+            s.connect(new InetSocketAddress("127.0.0.1", 5555), 3000);
         } catch (IOException e) {
             s.close();
-            throw new IOException(Ui.tr("debugging is off on the TV (port 13111 closed)"));
+            throw new IOException(Ui.tr("debugging is off on the TV (port 5555 closed)"));
         }
         Adb adb;
         try {
@@ -142,7 +142,7 @@ final class Adb implements Closeable {
     private static Adb signedIn(KeyPair keys) {
         Socket s = new Socket();
         try {
-            s.connect(new InetSocketAddress("127.0.0.1", 13111), 3000);
+            s.connect(new InetSocketAddress("127.0.0.1", 5555), 3000);
             s.setSoTimeout(5000);
             Adb adb = new Adb(s);
             adb.send(CNXN, VERSION, MAX_DATA, "host::\0".getBytes(StandardCharsets.US_ASCII));

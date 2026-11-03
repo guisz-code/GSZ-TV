@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
  * Original ⇄ GSZ TV. "free": our home screen and screensaver, and the apps in the lists below turned off
  * (pm disable-user: still installed, back with one button). "original": everything as it came from the factory.
  *
- * It all goes through the TV's own ADB (Adb, 127.0.0.1:13111), which you allow once on the TV. The switches run as
+ * It all goes through the TV's own ADB (Adb, 127.0.0.1:5555), which you allow once on the TV. The switches run as
  * background jobs (ModeJob) in the main process; the settings screen (the :home process) asks for them and follows the
  * state file. Only the TV itself asks for switches: nothing here listens to the network.
  */
