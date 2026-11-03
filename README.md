@@ -1,6 +1,10 @@
-# GSZ TV — Launcher para Android TV e projetores
+# GSZ TV — Launcher Android TV gratuito | GitHub
 
-**GSZ TV** é um launcher gratuito e sem anúncios para **Android TV**, criado por [@guisz-code](https://github.com/guisz-code). Instale no projetor Magcubic HY300 ou em outros dispositivos Android TV compatíveis.
+**GSZ TV** é um launcher gratuito e sem anúncios para Android TV, Google TV e projetores Android. Este é o repositório oficial do **GSZ TV no GitHub**: código-fonte, downloads APK, atualizações e instruções de instalação estão disponíveis aqui. Criado por [@guisz-code](https://github.com/guisz-code), foi desenvolvido e testado principalmente no projetor Magcubic HY300 com Android 12.
+
+Procure por **GSZ TV GitHub**, **GSZ TV APK**, **launcher Android TV** ou **GSZ TV projetor**? Baixe a versão atual na página oficial de [Releases do GSZ TV](https://github.com/guisz-code/GSZ-TV/releases/latest) ou siga as [instruções de instalação](#baixar-e-instalar).
+
+**English:** GSZ TV is a free, ad-free launcher for Android TV, Google TV and Android projectors. This is the official GSZ TV GitHub repository with source code, APK downloads and installation instructions.
 
 <p align="center">
   <img src="app/res/drawable-nodpi/icon.png" alt="Ícone do GSZ TV" width="180">
@@ -55,7 +59,7 @@ Se aparecer um aviso de segurança do Android, isso é esperado para aplicativos
 
 ### Atualizar uma instalação existente
 
-A partir da versão 1.5, abra **Configurações > Atualizações** no GSZ TV para verificar, baixar e instalar uma versão mais recente. O Android solicita confirmação antes de instalar. Também há uma verificação periódica semanal quando existe conexão.
+A partir da versão 1.5, abra **Configurações > Atualizações** no GSZ TV para verificar, baixar e instalar uma versão mais recente. O Android solicita confirmação antes de instalar. Com atualizações automáticas ativadas, a verificação periódica ocorre aproximadamente a cada 24 horas quando há conexão.
 
 Quem usa a versão 1.4 precisa instalar a 1.5 manualmente uma vez, pois o atualizador antigo consultava outro repositório.
 
