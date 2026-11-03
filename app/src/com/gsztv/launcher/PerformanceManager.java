@@ -1,12 +1,15 @@
 package com.gsztv.launcher;
 
 import android.app.ActivityManager;
+import android.app.Application;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Handler;
-import android.os.Looper;
+import android.os.HandlerThread;
+import android.os.Process;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,6 +23,7 @@ final class PerformanceManager {
     private static final String PREFS = "performance";
     private static final String TIMEOUT = "background_timeout_minutes";
     private static final long NEVER = Long.MAX_VALUE;
+    private static final long CHECK_EVERY_MS = 60_000L;
     private static final Set<String> PROTECTED = new HashSet<>(Arrays.asList(
             "com.gsztv.launcher", "com.nuvio.tv", "com.hisilicon.tv.service", "com.hisilicon.tvsetting",
             "com.hisilicon.tvui", "com.hisilicon.rmservice", "com.softwinner.tcorrection",
@@ -29,23 +33,57 @@ final class PerformanceManager {
 
     private PerformanceManager() {}
 
+    private static Handler worker;
+    private static Context app;
+    private static final Runnable automaticCleanup = new Runnable() {
+        @Override public void run() {
+            Context c = app;
+            if (c == null || timeout(c) <= 0) return;
+            cleanupExpired(c);
+            Handler h = worker;
+            if (h != null && timeout(c) > 0) h.postDelayed(this, CHECK_EVERY_MS);
+        }
+    };
+
     static int timeout(Context c) {
         return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(TIMEOUT, 0);
     }
 
     static void setTimeout(Context c, int minutes) {
         c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(TIMEOUT, minutes).apply();
+        schedule(c);
     }
 
-    static void schedule(Context c) {
-        Handler h = new Handler(Looper.getMainLooper());
-        Runnable r = new Runnable() {
-            @Override public void run() {
-                cleanupExpired(c);
-                h.postDelayed(this, 60_000L);
+    /**
+     * UsageStats may query a large history on inexpensive TVs.  Keep it off the UI thread and do not wake the
+     * launcher at all while automatic cleanup is disabled.
+     */
+    static synchronized void schedule(Context c) {
+        // The launcher deliberately has isolated :home, :keys and :sleep processes.  The cleanup needs one owner,
+        // otherwise each process wakes every minute and repeats the same UsageStats query.
+        if (!isMainProcess(c)) return;
+        app = c.getApplicationContext();
+        if (worker == null) {
+            HandlerThread thread = new HandlerThread("performance-cleanup", android.os.Process.THREAD_PRIORITY_BACKGROUND);
+            thread.start();
+            worker = new Handler(thread.getLooper());
+        }
+        worker.removeCallbacks(automaticCleanup);
+        if (timeout(app) > 0) worker.post(automaticCleanup);
+    }
+
+    private static boolean isMainProcess(Context c) {
+        String name = null;
+        if (Build.VERSION.SDK_INT >= 28) name = Application.getProcessName();
+        if (name == null) {
+            ActivityManager am = (ActivityManager) c.getSystemService(Context.ACTIVITY_SERVICE);
+            if (am != null && am.getRunningAppProcesses() != null) {
+                for (ActivityManager.RunningAppProcessInfo p : am.getRunningAppProcesses()) {
+                    if (p.pid == Process.myPid()) { name = p.processName; break; }
+                }
             }
-        };
-        h.post(r);
+        }
+        return name == null || c.getPackageName().equals(name);
     }
 
     static int cleanup(Context c) {

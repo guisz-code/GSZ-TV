@@ -83,6 +83,8 @@ final class Recs {
     private static final int TRAKT_MAX = MAX_CARDS;
     /** Images kept on disk: a backdrop and a poster for every title the list can hold. */
     private static final int FILES = 2 * (POOL + TRAKT_MAX);
+    /** A bad image URL must not fill the cache or force a large bitmap decode on a low-memory TV. */
+    private static final long MAX_IMAGE_BYTES = 12L << 20;
     /** Pick.mine: what they're in the middle of, and what they'd like (watchlist, Trakt's recommendations). */
     private static final int PROGRESS = 1, LIKED = 2;
     private static final int MANHA = 0, TARDE = 1, NOITE = 2;
@@ -1213,10 +1215,17 @@ final class Recs {
         File part = new File(f.getPath() + ".part");
         c.setConnectTimeout(8000);
         c.setReadTimeout(20000);
+        long length = c.getContentLengthLong();
+        if (length > MAX_IMAGE_BYTES) throw new IOException("image too large");
         try (InputStream in = c.getInputStream(); FileOutputStream out = new FileOutputStream(part)) {
             byte[] buffer = new byte[16384];
             int n;
-            while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+            long total = 0;
+            while ((n = in.read(buffer)) > 0) {
+                total += n;
+                if (total > MAX_IMAGE_BYTES) throw new IOException("image too large");
+                out.write(buffer, 0, n);
+            }
         } catch (IOException e) {
             //noinspection ResultOfMethodCallIgnored
             part.delete();
@@ -1298,6 +1307,20 @@ final class Recs {
         synchronized (images) {
             images.keySet().retainAll(keep);
             posters.keySet().retainAll(keep);
+        }
+    }
+
+    /** Keep the visible selection, but release preloaded artwork when the system needs RAM. */
+    void trimMemory(boolean critical) {
+        int keep = critical ? 0 : Math.min(3, Prefs.cards());
+        synchronized (images) {
+            while (images.size() > keep) {
+                java.util.Iterator<String> it = images.keySet().iterator();
+                if (!it.hasNext()) break;
+                String key = it.next();
+                it.remove();
+                posters.remove(key);
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 package com.gsztv.launcher;
 
 import android.app.Activity;
+import android.content.ComponentCallbacks2;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
@@ -93,6 +94,9 @@ public class HomeActivity extends Activity {
 
     @Override public void onTrimMemory(int level) {
         super.onTrimMemory(level);
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW && home != null) {
+            home.trimMemory(level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE);
+        }
         if (level >= TRIM_MEMORY_COMPLETE) Recs.get(this).trim();
     }
 

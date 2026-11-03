@@ -129,6 +129,20 @@ final class WatchArt {
         }
     }
 
+    /** Drop artwork that can be decoded again when Android reports that RAM is scarce. */
+    void trimMemory(boolean critical) {
+        synchronized (cache) {
+            int keep = critical ? 0 : 4;
+            while (cache.size() > keep) {
+                java.util.Iterator<Map.Entry<String, Bitmap>> it = cache.entrySet().iterator();
+                if (!it.hasNext()) break;
+                Map.Entry<String, Bitmap> oldest = it.next();
+                shaders.remove(oldest.getValue());
+                it.remove();
+            }
+        }
+    }
+
     private boolean failedRecently(String uri) {
         synchronized (cache) {
             Long at = failed.get(uri);

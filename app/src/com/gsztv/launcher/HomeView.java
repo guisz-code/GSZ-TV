@@ -761,6 +761,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         watchArt.close();   // its thread is shared: nothing is left running for this view
     }
 
+    /** Called by the activity when Android reports memory pressure; content reloads from its local cache if needed. */
+    void trimMemory(boolean critical) {
+        watchArt.trimMemory(critical);
+        recs.trimMemory(critical);
+    }
+
     /**
      * Starting state (Home pressed while the home screen is showing): first app focused, the first tab at its first
      * pick, drawer and sheet closed.
