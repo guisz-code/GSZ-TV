@@ -32,14 +32,14 @@ Abra as configurações da TV e procure **Sobre**, **Informações da TV** ou **
 | Sistema | Aparelhos | Como obter |
 | --- | --- | --- |
 | Android TV / Google TV | Projetores e TVs de várias marcas | APK `GSZTV.apk` na página de [Releases](https://github.com/guisz-code/GSZ-TV/releases/latest) |
-| webOS | Alguns modelos de Smart TVs LG | Versão experimental; compile o pacote `.ipk` seguindo as instruções abaixo |
-| Tizen | Alguns modelos de Smart TVs Samsung | Versão experimental; compile e assine o pacote `.wgt` seguindo as instruções abaixo |
+| webOS | Alguns modelos de Smart TVs LG | Pacote experimental `.ipk` no [pré-release tv-v0.1.0](https://github.com/guisz-code/GSZ-TV/releases/tag/tv-v0.1.0) |
+| Tizen | Alguns modelos de Smart TVs Samsung | Pacote experimental `.wgt` no [pré-release tv-v0.1.0](https://github.com/guisz-code/GSZ-TV/releases/tag/tv-v0.1.0); requer assinatura própria |
 
 TVs LG e Samsung antigas podem usar outros sistemas (NetCast e Orsay). A marca sozinha não garante compatibilidade. Um aparelho Android conectado por HDMI tem seu próprio sistema, independente da TV.
 
 ### LG webOS e Samsung Tizen — versões experimentais
 
-Os pacotes de webOS e Tizen não estão incluídos no release Android. As versões experimentais compartilham a interface e a navegação por controle remoto do projeto-base Free My TV. Funcionam como aplicativos; a tela inicial do fabricante permanece. Não incluem os recursos específicos do Android, como gestão de processos, ADB ou ajustes de projeção do HY300, e ainda precisam de validação em TVs reais.
+Os pacotes de webOS e Tizen estão disponíveis no pré-release [GSZ TV para LG webOS e Samsung Tizen — experimental 0.1.0](https://github.com/guisz-code/GSZ-TV/releases/tag/tv-v0.1.0). Eles compartilham a interface e a navegação por controle remoto do projeto-base Free My TV. Funcionam como aplicativos; a tela inicial do fabricante permanece. Não incluem os recursos específicos do Android, como gestão de processos, ADB ou ajustes de projeção do HY300, e ainda precisam de validação em TVs reais.
 
 **LG:** instale o aplicativo Developer Mode da loja LG, entre com sua conta de desenvolvedor e ative Dev Mode Status e Key Server. No computador, instale o pacote `.ipk` usando as ferramentas oficiais webOS ou execute `python webos/install.py IP_DA_TV` a partir deste repositório. Digite a senha de pareamento somente no terminal. Mantenha a sessão Developer Mode renovada; quando expira, os aplicativos de desenvolvimento podem ser removidos.
 
