@@ -7,6 +7,10 @@ Baixe a versão mais recente na página de [Releases](https://github.com/guisz-c
 **English:** GSZ TV is a free, ad-free launcher for Android TV, Google TV and Android projectors. This is the official GSZ TV GitHub repository with source code, APK downloads and installation instructions.
 
 <p align="center">
+  🌐 <strong>Site oficial:</strong> <a href="https://guisz-code.github.io/gzs-tv-site/">guisz-code.github.io/gzs-tv-site</a>
+</p>
+
+<p align="center">
   <img src="docs/images/interface-gsz-tv.png" alt="Prévia da interface do GSZ TV em azul neon, com destaques, continuar assistindo e aplicativos" width="100%">
 </p>
 
