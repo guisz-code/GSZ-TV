@@ -52,6 +52,38 @@ import java.util.Set;
  */
 public class SettingsActivity extends Activity {
     private SettingsView view;
+    private android.widget.FrameLayout settingsRoot;
+    private SettingsMenu menu;
+
+    String[] menuLabels() { return view.settingLabels(); }
+    String[] menuValues() { return view.settingValues(); }
+    int menuGroup(int row) {
+        if (row >= view.updatesRow() - 2) return 1;
+        if (row == view.keyRow() || row == 7 || row == 8) return 3;
+        if (row == 4 || row == 6 || row == 9 || row == 16) return 0;
+        return 4;
+    }
+    void menuAction(int row, boolean main) {
+        view.whyRows = null;
+        if (main) { view.screen = SettingsView.MAIN; view.focus = row; }
+        else view.showSettingsRow(row);
+        view.activate();
+        if (!main && row == SettingsView.TOP_ROW) view.commitWatch();
+        if (view.screen != SettingsView.HOME_SETTINGS && view.screen != SettingsView.MAIN) {
+            menu.setVisibility(View.GONE);
+            view.setVisibility(View.VISIBLE);
+            view.requestFocus();
+        }
+        menu.refreshValues();
+    }
+    private void returnToMenu() {
+        view.commitWatch();
+        view.setVisibility(View.INVISIBLE);
+        menu.setVisibility(View.VISIBLE);
+        menu.refreshValues();
+        menu.restoreFocus();
+    }
+
     private DreamView preview;   // "Screensaver": the screensaver right here, without changing the system setting
 
     @Override protected void onCreate(Bundle savedInstanceState) {
@@ -63,7 +95,12 @@ public class SettingsActivity extends Activity {
         SleepTimer.listen(this);   // :home may start here, from the launcher icon
         SleepTimer.check(this);
         view = new SettingsView(this);
-        setContentView(view);
+        settingsRoot = new android.widget.FrameLayout(this);
+        settingsRoot.addView(view);
+        menu = new SettingsMenu(this);
+        settingsRoot.addView(menu);
+        setContentView(settingsRoot);
+        view.setVisibility(View.INVISIBLE);
     }
 
     /**
@@ -131,7 +168,14 @@ public class SettingsActivity extends Activity {
                     return super.dispatchKeyEvent(event);
             }
         }
-        if (view.onKey(event)) return true;
+        if (menu != null && menu.getVisibility() == View.VISIBLE) {
+            if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && menu.back(event)) return true;
+            return super.dispatchKeyEvent(event);
+        }
+        if (view.onKey(event)) {
+            if (view.screen == SettingsView.MAIN || view.screen == SettingsView.HOME_SETTINGS) returnToMenu();
+            return true;
+        }
         return super.dispatchKeyEvent(event);
     }
 
@@ -145,7 +189,8 @@ public class SettingsActivity extends Activity {
         if (preview == null) return;
         preview.stop();
         preview = null;
-        setContentView(view);
+        setContentView(settingsRoot);
+        returnToMenu();
         view.resume();
     }
 
@@ -678,23 +723,21 @@ public class SettingsActivity extends Activity {
             return y + (Config.WATCHMODE_KEY.trim().isEmpty() ? 78 : 108) * k;
         }
 
-        /** List row: no background; focused, white with a shadow (the Apple TV focus). Returns how focused it is. */
+        private final Paint menuCard = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        /** Shared card styling keeps every existing settings screen and action available. */
         private float drawRowBackground(Canvas c, int i) {
             float f = Ui.clamp(pop[i].value);
-            if (f > 0.01f) {
-                float s = 1 + 0.02f * f;
-                float cx = rowRect.centerX(), cy = rowRect.centerY();
-                tmp.set(cx - rowRect.width() * s / 2, cy - rowRect.height() * s / 2, cx + rowRect.width() * s / 2, cy + rowRect.height() * s / 2);
-                float r = 18 * k * s;
-                tmp.offset(0, 10 * k * f);
-                shadow.setColor(Ui.alpha(0xFF000000, 0.4f * f));
-                c.drawRoundRect(tmp, r, r, shadow);
-                tmp.offset(0, -10 * k * f);
-                white.setAlpha(Math.round(255 * f));
-                c.drawRoundRect(tmp, r, r, white);
-                rowRect.set(tmp);
-            }
-            return f;
+            menuCard.setStyle(Paint.Style.FILL);
+            menuCard.setColor(blend(0xFF101A29, 0xFF063C80, f));
+            c.drawRoundRect(rowRect, 18 * k, 18 * k, menuCard);
+            menuCard.setStyle(Paint.Style.STROKE);
+            menuCard.setStrokeWidth((1 + 2 * f) * k);
+            menuCard.setColor(blend(0xFF263343, 0xFF008CFF, f));
+            c.drawRoundRect(rowRect, 18 * k, 18 * k, menuCard);
+            menuCard.setStyle(Paint.Style.FILL);
+            // All existing label renderers retain white text on the dark cards.
+            return 0;
         }
 
         private float drawComparison(Canvas c, float y) {

@@ -1932,6 +1932,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         } else {
             if (it.tile != null) roundImage(c, it.tile, it.tileShader, cell, r);
         }
+        drawAppFocus(c, cell, r, fc);
     }
 
     /**
@@ -2556,13 +2557,26 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         border.setColor(0x14FFFFFF);
         c.drawRoundRect(cell, r, r, border);
-        if (f > 0.01f) {
-            rim.setShader(null);
-            rim.setColor(Ui.alpha(0xFFFFFFFF, 0.4f * fc));
-            rim.setStrokeWidth(1.5f * k);
-            c.drawRoundRect(cell, r, r, rim);
-            rim.setStrokeWidth(2.5f * k);
-        }
+        drawAppFocus(c, cell, r, fc);
+    }
+
+    private final Paint appFocusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF appFocusBounds = new RectF();
+
+    /** Offset outline stays visible even on white logos; reuses the existing focus animation. */
+    private void drawAppFocus(Canvas c, RectF bounds, float radius, float amount) {
+        if (amount <= 0.01f) return;
+        float gap = 5 * k;
+        appFocusBounds.set(bounds);
+        appFocusBounds.inset(-gap, -gap);
+        appFocusPaint.setStyle(Paint.Style.STROKE);
+        appFocusPaint.setStrokeWidth(7 * k);
+        appFocusPaint.setColor(Ui.alpha(tone(0xFFF5F6F8, 0xFF080C12), amount * 0.9f));
+        c.drawRoundRect(appFocusBounds, radius + gap, radius + gap, appFocusPaint);
+        appFocusPaint.setStrokeWidth(3.5f * k);
+        int color = Prefs.theme().equals("gsz") ? 0xFF009DFF : tone(0xFF20242B, 0xFFF4F5F7);
+        appFocusPaint.setColor(Ui.alpha(color, amount));
+        c.drawRoundRect(appFocusBounds, radius + gap, radius + gap, appFocusPaint);
     }
 
     // MARK: - Toasts
