@@ -4544,8 +4544,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             if(p.externalArt!=null) {
                 WatchNext.Item source=p.externalArt;
                 Bitmap image=watchArt.get(source.pictureUri,source.pictureKey,source.bannerKey,NuvioCatalog.PACKAGE);
-                if(image!=null) completeArtwork(c,image,watchArt.shader(image),box);
-            } else if(art!=null && art.wide!=null) completeArtwork(c,art.wide,art.wideShader,box);
+                if(image!=null) coverImage(c,image,watchArt.shader(image),box,24*k,1);
+            } else if(art!=null && art.wide!=null) coverImage(c,art.wide,art.wideShader,box,24*k,1);
         }
         int ink=tone(L_INK,WHITE),dim=tone(0xFF59616D,0xFFBEC8D6);
         streamClip.rewind(); streamClip.addRoundRect(box,24*k,24*k,android.graphics.Path.Direction.CW);
@@ -4577,10 +4577,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         streamBox(c,cell,tone(0xFFE7EAF0,0xFF0E141B),false);
         Bitmap art=watchArt.get(it.pictureUri,it.pictureKey,it.bannerKey,it.pkg);
         if(art!=null) coverImage(c,art,watchArt.shader(art),cell,24*k,1);
-        c.save(); streamClip.rewind(); streamClip.addRoundRect(cell,24*k,24*k,android.graphics.Path.Direction.CW); c.clipPath(streamClip);
-        fill.setShader(null); fill.setColor(Ui.alpha(0xFF000000,Prefs.theme().equals("light")?0.60f:0.68f));
-        c.drawRect(cell.left,cell.top+cell.height()*0.57f,cell.right,cell.bottom,fill); c.restore();
-        int ink=WHITE,dim=0xFFD1D7DF;
+        int ink=WHITE,dim=WHITE;
         String remaining=timeLeft(it);
         if(it.progress()>=0) {
             tmp.set((x+22)*k,(y+166)*k,(x+385)*k,(y+173)*k);

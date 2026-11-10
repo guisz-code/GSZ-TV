@@ -143,7 +143,7 @@ O código original do GSZ TV está sob a licença MIT, indicada em [`LICENSE`](L
 
 1. Aumente `android:versionCode` e `android:versionName` em `app/AndroidManifest.xml`.
 2. Compile com `bash build.sh --generic`, preservando a mesma `gsztv.keystore` utilizada na versão 1.5. Guarde uma cópia segura dessa chave; não a publique no GitHub.
-3. Crie uma release pública, não marcada como pré-release, com tag correspondente à versão (por exemplo, `v1.8.8`).
+3. Crie uma release pública, não marcada como pré-release, com tag correspondente à versão (por exemplo, `v1.8.9`).
 4. Anexe o APK com o nome exato **`GSZTV.apk`**. O atualizador verifica o pacote, a versão e a assinatura antes de instalar.
 
 
