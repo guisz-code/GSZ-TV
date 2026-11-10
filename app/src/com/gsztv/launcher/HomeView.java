@@ -3943,9 +3943,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** The cards side by side: the one at cardIndex wide, the others tall, sliding as `cardOpen` moves. */
     private void layoutCards() {
-        if (streamingDesign() && cards.isEmpty()) {
+        if (streamingDesign()) {
             for (int i = 0; i < cardRects.length; i++)
-                cardRects[i].set(i == cardIndex ? 80*k : -4000*k, 154*k, i == cardIndex ? 1840*k : -3900*k, 560*k);
+                cardRects[i].set(i == cardIndex ? 80*k : -4000*k, 154*k, i == cardIndex ? 1840*k : -3900*k, 530*k);
             return;
         }
         float top = L_CARDS_TOP * k, ch = L_CARD_H * k, g = L_CARD_GAP * k, tall = L_TALL_W * k;
@@ -4072,7 +4072,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void watchRect(int i, RectF out) {
         if (streamingDesign()) {
             float x = (80 + (i - watchScroll.value) * 600) * k;
-            float y = picksMode() ? 650*k : 330*k; out.set(x, y, x + 560*k, y + 140*k); return;
+            float y = picksMode() ? 610*k : 330*k; out.set(x, y, x + 560*k, y + 220*k); return;
         }
         float step = (WatchArt.W + WATCH_GAP) * k;
         float x = MARGIN * k + i * step - watchScroll.value * step, y = L_CARDS_TOP * k;
@@ -4514,57 +4514,83 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             c.drawText(names[i],r.centerX()-fitPaint.measureText(names[i])/2,r.centerY()+Ui.halfCap(fitPaint),fitPaint);
         }
         streamText(c,clockText,1730,85,28,ink,110);
-        if (clockMode()) drawClock(c); if (picksMode() && !cards.isEmpty()) {
-            for (int i=0;i<Math.min(cardSlots,cards.size());i++) drawLightCard(c,i);
-        } if (picksMode() && cards.isEmpty()) { RectF heroBox=streamHero; heroBox.set(80*k,154*k,1840*k,560*k);
-        Recs.Pick pick=cards.isEmpty()?null:cards.get(Math.min(cardIndex,cards.size()-1));
-        streamBox(c,heroBox,tone(0xFFE7EAF0,0xFF0A1520),zone==Z_CARDS);
-        if(pick!=null) {
-            Backdrop art=recs.backdrop(pick);
-            if(art!=null && art.wide!=null) coverImage(c,art.wide,art.wideShader,heroBox,24*k,1);
-        }
-        c.save(); streamClip.rewind();
-        streamClip.addRoundRect(heroBox,24*k,24*k,android.graphics.Path.Direction.CW); c.clipPath(streamClip);
-        int solid=tone(0xFFF2F4F7,0xFF030A12);
-        if (streamHeroGradient == null || streamHeroColor != solid || streamHeroK != k) {
-            streamHeroColor = solid; streamHeroK = k;
-            streamHeroGradient = new LinearGradient(80*k,0,1500*k,0,new int[]{solid,solid,solid & 0x00FFFFFF},new float[]{0,.28f,1},Shader.TileMode.CLAMP);
-        }
-        fill.setShader(streamHeroGradient);
-        c.drawRect(heroBox,fill); fill.setShader(null); c.restore();
-        streamText(c,pick==null?"Seu cinema começa aqui":pick.title,140,260,58,ink,880);
-        streamText(c,pick==null?"GSZ TV • Seus aplicativos em um só lugar":pick.meta,140,312,25,Prefs.theme().equals("gsz")?0xFF79CCFF:dim,960);
-        streamText(c,pick==null?"Configure a chave TMDB para receber destaques.":pick.pkg==null?"Instale um aplicativo compatível para assistir • ◀ ▶ mais títulos":"Pressione OK para abrir • ◀ ▶ para ver mais títulos",140,374,24,dim,1000);
-        if(pick!=null && pick.pkg!=null) {
-            RectF play=streamPlay; play.set(140*k,434*k,388*k,504*k);
-            streamBox(c,play,accent,zone==Z_CARDS);
-            streamText(c,"▶  Assistir",178,480,27,Prefs.theme().equals("gsz")?WHITE:tone(WHITE,L_INK),220);
-            streamText(c,(cardIndex+1)+" / "+cards.size(),1660,520,22,ink,120);
-        }
-        } if (continueMode()) { float watchY = picksMode() ? 620 : 300; streamText(c,"Continuar assistindo",80,watchY,34,ink,1000);
+        if (clockMode()) drawClock(c);
+        if (picksMode()) drawStreamingFeature(c);
+        if (continueMode()) { float watchY = picksMode() ? 580 : 300; streamText(c,"Continuar assistindo",80,watchY,34,ink,1000);
         if(watching.isEmpty()) streamText(c,watchAllowed?"Seus títulos em andamento aparecerão aqui.":"Ative Continuar assistindo nas configurações para permitir o acesso.",80,watchY+90,23,dim,1700);
         else {
-            c.save(); c.clipRect(55*k,(watchY+15)*k,w,(watchY+190)*k);
+            c.save(); c.clipRect(55*k,(watchY+15)*k,w,(watchY+260)*k);
             for(int i=0;i<watching.size();i++) drawStreamingWatch(c,i);
             c.restore();
         }
         } streamText(c,"Meus apps",80,862,34,ink,1000);
     }
+    private LinearGradient featureShade, continueShade;
+    private int mediaShadeColor;
+    private void mediaShade(Canvas c, RectF bounds, boolean horizontal) {
+        int color = tone(0xFFF9FAFC, 0xFF050B13);
+        if (featureShade == null || mediaShadeColor != color) {
+            mediaShadeColor = color;
+            featureShade = new LinearGradient(0,0,1,0,new int[]{color,Ui.alpha(color,.92f),color & 0xFFFFFF},new float[]{0,.3f,1},Shader.TileMode.CLAMP);
+            continueShade = new LinearGradient(0,0,0,1,new int[]{color & 0xFFFFFF,Ui.alpha(color,.88f),color},new float[]{0,.62f,1},Shader.TileMode.CLAMP);
+        }
+        c.save(); streamClip.rewind();
+        streamClip.addRoundRect(bounds,24*k,24*k,android.graphics.Path.Direction.CW); c.clipPath(streamClip);
+        c.translate(bounds.left,bounds.top); c.scale(bounds.width(),bounds.height());
+        fill.setShader(horizontal ? featureShade : continueShade); c.drawRect(0,0,1,1,fill);
+        fill.setShader(null); c.restore();
+    }
+    private void drawStreamingFeature(Canvas c) {
+        RectF box=streamHero; box.set(80*k,154*k,1840*k,530*k);
+        Recs.Pick p=cards.isEmpty()?null:cards.get(Math.min(cardIndex,cards.size()-1));
+        streamBox(c,box,tone(0xFFE7EAF0,0xFF0A1520),false);
+        if(p!=null) {
+            Backdrop art=recs.backdrop(p);
+            if(p.externalArt!=null) {
+                WatchNext.Item source=p.externalArt;
+                Bitmap image=watchArt.get(source.pictureUri,source.pictureKey,source.bannerKey,NuvioCatalog.PACKAGE);
+                if(image!=null) coverImage(c,image,watchArt.shader(image),box,24*k,1);
+            } else if(art!=null && art.wide!=null) coverImage(c,art.wide,art.wideShader,box,24*k,1);
+        }
+        mediaShade(c,box,true);
+        int ink=tone(L_INK,WHITE),dim=tone(0xFF59616D,0xFFBEC8D6);
+        streamText(c,"Em destaque",132,205,20,streamAccent(),700);
+        streamText(c,p==null?"Seu cinema começa aqui":p.title,132,280,48,ink,960);
+        streamText(c,p==null?"Configure a chave TMDB para receber destaques.":p.meta==null?"":p.meta,132,330,23,dim,880);
+        streamText(c,p==null?"": "◀  ▶  Explore os títulos em destaque",132,375,20,dim,850);
+        if(p!=null && p.pkg!=null) {
+            streamPlay.set(132*k,410*k,430*k,479*k);
+            streamBox(c,streamPlay,streamAccent(),zone==Z_CARDS);
+            streamText(c,"▶  Assistir agora",157,455,25,Prefs.theme().equals("gsz")?WHITE:tone(WHITE,L_INK),265);
+        }
+        rim.setShader(null); rim.setColor(zone==Z_CARDS?streamAccent():tone(0xFFB9C3D0,0xFF344557));
+        rim.setStrokeWidth((zone==Z_CARDS?3:1.5f)*k); c.drawRoundRect(box,24*k,24*k,rim);
+        int count=cards.size();
+        for(int i=0;i<Math.min(count,9);i++) {
+            float x=960+(i-Math.min(count,9)/2f)*23;
+            fill.setColor(i==cardIndex?streamAccent():tone(0xFFBBC4CF,0xFF344353));
+            tmp.set(x*k,543*k,(x+(i==cardIndex?17:9))*k,551*k); c.drawRoundRect(tmp,4*k,4*k,fill);
+        }
+        if(count>9) streamText(c,(cardIndex+1)+" / "+count,1730,510,18,ink,100);
+    }
     private void drawStreamingWatch(Canvas c, int i) {
         watchRect(i,cell); if(cell.left>w || cell.right<0) return;
         WatchNext.Item it=watching.get(i); float x=cell.left/k, y=cell.top/k;
-        streamBox(c,cell,tone(0xFFFFFFFF,0xFF0E141B),zone==Z_WATCH && watchIndex==i);
+        streamBox(c,cell,tone(0xFFE7EAF0,0xFF0E141B),false);
         Bitmap art=watchArt.get(it.pictureUri,it.pictureKey,it.bannerKey,it.pkg);
-        if(art!=null) {
-            tmp.set(cell.left+2*k,cell.top+2*k,cell.left+210*k,cell.bottom-2*k);
-            roundImage(c,art,watchArt.shader(art),tmp,22*k);
-        }
-        streamText(c,it.title,x+235,y+52,25,tone(L_INK,WHITE),300);
-        String meta=it.episode==null?appName(it):it.episode;
-        streamText(c,meta,x+235,y+88,20,tone(L_DIM,0xFFABB4BF),300);
-        tmp.set((x+235)*k,(y+114)*k,(x+530)*k,(y+121)*k);
-        fill.setColor(tone(0xFFE0E4E9,0xFF303941)); c.drawRoundRect(tmp,4*k,4*k,fill);
+        if(art!=null) coverImage(c,art,watchArt.shader(art),cell,24*k,1);
+        mediaShade(c,cell,false);
+        int ink=tone(L_INK,WHITE),dim=tone(0xFF59616D,0xFFB8C3D1);
+        String left=timeLeft(it);
+        float barRight=left==null?x+532:x+335;
+        tmp.set((x+26)*k,(y+130)*k,barRight*k,(y+137)*k);
+        fill.setColor(tone(0xFFB6C0CD,0xFF52606D)); c.drawRoundRect(tmp,4*k,4*k,fill);
         if(it.progress()>=0) { tmp.right=tmp.left+tmp.width()*it.progress(); fill.setColor(streamAccent()); c.drawRoundRect(tmp,4*k,4*k,fill); }
+        if(left!=null) streamText(c,left,x+355,y+140,17,dim,177);
+        streamText(c,it.title,x+26,y+174,25,ink,508);
+        streamText(c,it.episode==null?appName(it):it.episode,x+26,y+203,18,dim,508);
+        rim.setShader(null); rim.setColor(zone==Z_WATCH && watchIndex==i?streamAccent():tone(0xFFB9C3D0,0xFF344557));
+        rim.setStrokeWidth((zone==Z_WATCH && watchIndex==i?3.5f:1)*k); c.drawRoundRect(cell,24*k,24*k,rim);
     }
 
     private void drawLightSky(Canvas c) {

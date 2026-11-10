@@ -20,12 +20,24 @@ final class UpdateBanner extends LinearLayout {
     private final String installed;
     private boolean resumed;
     private long requested;
+    private long resumedAt, discoveryAt;
+    private boolean wakeCheck = true;
+    private final android.net.ConnectivityManager connectivity;
+    private boolean networkListening;
+    private final android.net.ConnectivityManager.NetworkCallback network = new android.net.ConnectivityManager.NetworkCallback() {
+        @Override public void onAvailable(android.net.Network n) {
+            handler.post(() -> { if (resumed) discover(true); });
+        }
+    };
     private final BroadcastReceiver power = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             if (Intent.ACTION_SCREEN_OFF.equals(i.getAction())) {
+                wakeCheck = true;
                 session.edit().remove("dismissedBoot").apply();
                 pause();
             } else if (Intent.ACTION_SCREEN_ON.equals(i.getAction())) {
+                session.edit().remove("dismissedBoot").apply();
+                wakeCheck = true;
                 if (getWindowVisibility() == VISIBLE) resume();
             }
         }
@@ -35,13 +47,16 @@ final class UpdateBanner extends LinearLayout {
             if (!resumed) return;
             JSONObject state = Updates.state(getContext());
             render(state);
-            handler.postDelayed(this, Updates.busy(state) || SystemClock.elapsedRealtime() - requested < 15000 ? 2000 : 15000);
+            if (Updates.FAILED.equals(state.optString("state"))) discover(false);
+            handler.postDelayed(this, Updates.busy(state) || SystemClock.elapsedRealtime() - resumedAt < 30000
+                    || SystemClock.elapsedRealtime() - requested < 15000 ? 1000 : 5000);
         }
     };
 
     UpdateBanner(Context c, HomeView home) {
         super(c);
         this.home = home;
+        connectivity = c.getSystemService(android.net.ConnectivityManager.class);
         installed = Updates.installedVersion(c);
         session = c.getSharedPreferences("update-banner-session", Context.MODE_PRIVATE);
         setOrientation(HORIZONTAL);
@@ -109,20 +124,41 @@ final class UpdateBanner extends LinearLayout {
         t.setOnFocusChangeListener((v, focus) -> t.setBackground(box(focus ? 0xff168bff : 0xff006bef, focus ? Color.WHITE : 0xff008aff)));
         return t;
     }
+    private void discover(boolean wake) {
+        if ((!Prefs.updateBanner() && !Prefs.autoUpdates()) || !Updates.takesReleases(getContext())) return;
+        long now = SystemClock.elapsedRealtime();
+        if (discoveryAt != 0 && now - discoveryAt < 30000) return;
+        JSONObject state = Updates.state(getContext());
+        if (Updates.busy(state)) return;
+        long age = System.currentTimeMillis() - state.optLong("at");
+        long interval = Updates.FAILED.equals(state.optString("state")) ? 30000 : 24 * 3600000L;
+        if (!wake && age >= 0 && age < interval) return;
+        if (connectivity != null && connectivity.getActiveNetwork() == null) return;
+        discoveryAt = now;
+        wakeCheck = false;
+        ModeJob.schedule(getContext(), ModeJob.DISCOVER, "", 0);
+    }
     void resume() {
+        if (!resumed) resumedAt = SystemClock.elapsedRealtime();
         resumed = true;
         Updates.schedule(getContext());
-        JSONObject state = Updates.state(getContext());
-        long age = System.currentTimeMillis() - state.optLong("at");
-        long interval = Updates.FAILED.equals(state.optString("state")) ? 30 * 60000L : 24 * 3600000L;
-        if ((Prefs.updateBanner() || Prefs.autoUpdates()) && Updates.takesReleases(getContext())
-                && !Updates.busy(state) && (age >= interval || age < 0)) {
-            ModeJob.schedule(getContext(), ModeJob.DISCOVER, "", 0);
+        // Render the cached available version before any network work is requested.
+        render(Updates.state(getContext()));
+        discover(wakeCheck);
+        if (!networkListening && connectivity != null) {
+            try { connectivity.registerDefaultNetworkCallback(network); networkListening = true; }
+            catch (RuntimeException ignored) { }
         }
         handler.removeCallbacks(poll);
         poll.run();
     }
-    void pause() { resumed = false; handler.removeCallbacks(poll); }
+    void pause() {
+        resumed = false; handler.removeCallbacks(poll);
+        if (networkListening) {
+            try { connectivity.unregisterNetworkCallback(network); } catch (RuntimeException ignored) { }
+            networkListening = false;
+        }
+    }
     void destroy() { pause(); getContext().unregisterReceiver(power); }
     private void hide() {
         if (hasFocus()) home.requestFocus();
