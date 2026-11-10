@@ -4072,7 +4072,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void watchRect(int i, RectF out) {
         if (streamingDesign()) {
             float x = (80 + (i - watchScroll.value) * 600) * k;
-            float y = picksMode() ? 610*k : 330*k; out.set(x, y, x + 560*k, y + 220*k); return;
+            float y = picksMode() ? 595*k : 330*k; out.set(x, y, x + 560*k, y + 260*k); return;
         }
         float step = (WatchArt.W + WATCH_GAP) * k;
         float x = MARGIN * k + i * step - watchScroll.value * step, y = L_CARDS_TOP * k;
@@ -4472,7 +4472,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private boolean streamingDesign() { return true; }
     private final RectF streamLogo = new RectF(), streamHero = new RectF(), streamPlay = new RectF();
     private final android.graphics.Path streamClip = new android.graphics.Path();
-    private LinearGradient streamSkyGradient, streamHeroGradient;
+    private LinearGradient streamSkyGradient, streamHeroGradient, mediaTextShade;
     private int streamSkyW, streamSkyH, streamHeroColor;
     private float streamHeroK;
     private int streamAccent() { return Prefs.theme().equals("gsz") ? 0xFF009DFF : tone(0xFF17191D, 0xFFF4F5F7); }
@@ -4519,7 +4519,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (continueMode()) { float watchY = picksMode() ? 580 : 300; streamText(c,"Continuar assistindo",80,watchY,34,ink,1000);
         if(watching.isEmpty()) streamText(c,watchAllowed?"Seus títulos em andamento aparecerão aqui.":"Ative Continuar assistindo nas configurações para permitir o acesso.",80,watchY+90,23,dim,1700);
         else {
-            c.save(); c.clipRect(55*k,(watchY+15)*k,w,(watchY+260)*k);
+            c.save(); c.clipRect(55*k,(watchY+15)*k,w,(watchY+280)*k);
             for(int i=0;i<watching.size();i++) drawStreamingWatch(c,i);
             c.restore();
         }
@@ -4548,6 +4548,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             } else if(art!=null && art.wide!=null) completeArtwork(c,art.wide,art.wideShader,box);
         }
         int ink=tone(L_INK,WHITE),dim=tone(0xFF59616D,0xFFBEC8D6);
+        streamClip.rewind(); streamClip.addRoundRect(box,24*k,24*k,android.graphics.Path.Direction.CW);
+        c.save(); c.clipPath(streamClip);
+        if(mediaTextShade==null) mediaTextShade=new LinearGradient(0,0,1040*k,0,new int[]{0xE8000914,0xB8000914,0x00000914},null,Shader.TileMode.CLAMP);
+        fill.setShader(mediaTextShade); c.drawRect(box.left,box.top,box.left+1100*k,box.bottom,fill); fill.setShader(null); c.restore();
         streamText(c,"Em destaque",132,205,20,streamAccent(),700);
         streamText(c,p==null?"Seu cinema começa aqui":p.title,132,280,48,ink,960);
         streamText(c,p==null?"Configure a chave TMDB para receber destaques.":p.meta==null?"":p.meta,132,330,23,dim,880);
@@ -4572,16 +4576,20 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         WatchNext.Item it=watching.get(i); float x=cell.left/k, y=cell.top/k;
         streamBox(c,cell,tone(0xFFE7EAF0,0xFF0E141B),false);
         Bitmap art=watchArt.get(it.pictureUri,it.pictureKey,it.bannerKey,it.pkg);
-        if(art!=null) completeArtwork(c,art,watchArt.shader(art),cell);
-        int ink=tone(L_INK,WHITE),dim=tone(0xFF59616D,0xFFB8C3D1);
-        String left=timeLeft(it);
-        float barRight=left==null?x+532:x+335;
-        tmp.set((x+26)*k,(y+130)*k,barRight*k,(y+137)*k);
-        fill.setColor(tone(0xFFB6C0CD,0xFF52606D)); c.drawRoundRect(tmp,4*k,4*k,fill);
-        if(it.progress()>=0) { tmp.right=tmp.left+tmp.width()*it.progress(); fill.setColor(streamAccent()); c.drawRoundRect(tmp,4*k,4*k,fill); }
-        if(left!=null) streamText(c,left,x+355,y+140,17,dim,177);
-        streamText(c,it.title,x+26,y+174,25,ink,508);
-        streamText(c,it.episode==null?appName(it):it.episode,x+26,y+203,18,dim,508);
+        if(art!=null) coverImage(c,art,watchArt.shader(art),cell,24*k,1);
+        c.save(); streamClip.rewind(); streamClip.addRoundRect(cell,24*k,24*k,android.graphics.Path.Direction.CW); c.clipPath(streamClip);
+        fill.setShader(null); fill.setColor(Ui.alpha(0xFF000000,Prefs.theme().equals("light")?0.60f:0.68f));
+        c.drawRect(cell.left,cell.top+cell.height()*0.57f,cell.right,cell.bottom,fill); c.restore();
+        int ink=WHITE,dim=0xFFD1D7DF;
+        String remaining=timeLeft(it);
+        if(it.progress()>=0) {
+            tmp.set((x+22)*k,(y+166)*k,(x+385)*k,(y+173)*k);
+            fill.setColor(0x88000000); c.drawRoundRect(tmp,4*k,4*k,fill);
+            tmp.right=tmp.left+tmp.width()*it.progress(); fill.setColor(streamAccent()); c.drawRoundRect(tmp,4*k,4*k,fill);
+            streamText(c,remaining,x+405,y+174,16,ink,132);
+        } else if(it.episode!=null) streamText(c,"Próximo episódio",x+22,y+174,17,streamAccent(),300);
+        streamText(c,it.title,x+22,y+214,23,ink,515);
+        if(it.episode!=null) streamText(c,it.episode,x+22,y+245,16,dim,515);
         rim.setShader(null); rim.setColor(zone==Z_WATCH && watchIndex==i?streamAccent():tone(0xFFB9C3D0,0xFF344557));
         rim.setStrokeWidth((zone==Z_WATCH && watchIndex==i?3.5f:1)*k); c.drawRoundRect(cell,24*k,24*k,rim);
     }
