@@ -133,6 +133,10 @@ bash build.sh --generic
 
 O arquivo gerado será `GSZTV.apk` na raiz do projeto. O modo `--generic` não inclui chaves ou dados pessoais no APK e é o formato recomendado para Releases públicas.
 
+## Licenças
+
+O código original do GSZ TV está sob a licença MIT, indicada em [`LICENSE`](LICENSE). Os aplicativos webOS e Tizen incluem fontes adaptadas do Free My TV; essa parte mantém a licença e os direitos autorais originais em [`LICENSE-FreeMyTV`](LICENSE-FreeMyTV). Componentes de terceiros podem ter avisos próprios junto aos respectivos arquivos.
+
 ## Estrutura do projeto
 
 ### Publicar novas versões
