@@ -76,6 +76,14 @@ public class SettingsActivity extends Activity {
         }
         menu.refreshValues();
     }
+    void menuAdjust(int row, int direction) {
+        view.whyRows = null;
+        view.showSettingsRow(row);
+        if (row == view.updatesRow() - 2 || row == view.updatesRow() - 1) view.activate();
+        else view.adjust(direction);
+        if (row == SettingsView.TOP_ROW) view.commitWatch();
+        menu.refreshValues();
+    }
     private void returnToMenu() {
         view.commitWatch();
         view.setVisibility(View.INVISIBLE);

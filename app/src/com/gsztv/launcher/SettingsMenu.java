@@ -110,7 +110,16 @@ final class SettingsMenu extends LinearLayout {
             String[] labels=activity.menuLabels(), current=activity.menuValues();
             for (int i=0; i<labels.length; i++) if (activity.menuGroup(i)==next) {
                 final int row=i;
-                values.add(card(labels[i], current[i], ICONS[next], () -> activity.menuAction(row, false)));
+                TextView value = card(labels[i], current[i], ICONS[next], () -> activity.menuAction(row, false));
+                View rowView = (View) value.getParent().getParent();
+                rowView.setOnKeyListener((v, code, event) -> {
+                    if (code != KeyEvent.KEYCODE_DPAD_LEFT && code != KeyEvent.KEYCODE_DPAD_RIGHT) return false;
+                    if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                        activity.menuAdjust(row, code == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
+                    }
+                    return true;
+                });
+                values.add(value);
                 ids.add(i);
             }
             if (next == 5) {

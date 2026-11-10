@@ -4525,20 +4525,15 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         } streamText(c,"Meus apps",80,862,34,ink,1000);
     }
-    private LinearGradient featureShade, continueShade;
-    private int mediaShadeColor;
-    private void mediaShade(Canvas c, RectF bounds, boolean horizontal) {
-        int color = tone(0xFFF9FAFC, 0xFF050B13);
-        if (featureShade == null || mediaShadeColor != color) {
-            mediaShadeColor = color;
-            featureShade = new LinearGradient(0,0,1,0,new int[]{color,Ui.alpha(color,.92f),color & 0xFFFFFF},new float[]{0,.3f,1},Shader.TileMode.CLAMP);
-            continueShade = new LinearGradient(0,0,0,1,new int[]{color & 0xFFFFFF,Ui.alpha(color,.88f),color},new float[]{0,.62f,1},Shader.TileMode.CLAMP);
-        }
-        c.save(); streamClip.rewind();
-        streamClip.addRoundRect(bounds,24*k,24*k,android.graphics.Path.Direction.CW); c.clipPath(streamClip);
-        c.translate(bounds.left,bounds.top); c.scale(bounds.width(),bounds.height());
-        fill.setShader(horizontal ? featureShade : continueShade); c.drawRect(0,0,1,1,fill);
-        fill.setShader(null); c.restore();
+    private final RectF completeArtworkBounds = new RectF();
+
+    /** Fit the entire artwork without cropping, stretching, or a colour overlay. */
+    private void completeArtwork(Canvas c, Bitmap image, BitmapShader shader, RectF bounds) {
+        float scale = Math.min(bounds.width() / image.getWidth(), bounds.height() / image.getHeight());
+        float halfW = image.getWidth() * scale / 2, halfH = image.getHeight() * scale / 2;
+        completeArtworkBounds.set(bounds.centerX()-halfW, bounds.centerY()-halfH,
+                bounds.centerX()+halfW, bounds.centerY()+halfH);
+        roundImage(c,image,shader,completeArtworkBounds,24*k);
     }
     private void drawStreamingFeature(Canvas c) {
         RectF box=streamHero; box.set(80*k,154*k,1840*k,530*k);
@@ -4549,10 +4544,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             if(p.externalArt!=null) {
                 WatchNext.Item source=p.externalArt;
                 Bitmap image=watchArt.get(source.pictureUri,source.pictureKey,source.bannerKey,NuvioCatalog.PACKAGE);
-                if(image!=null) coverImage(c,image,watchArt.shader(image),box,24*k,1);
-            } else if(art!=null && art.wide!=null) coverImage(c,art.wide,art.wideShader,box,24*k,1);
+                if(image!=null) completeArtwork(c,image,watchArt.shader(image),box);
+            } else if(art!=null && art.wide!=null) completeArtwork(c,art.wide,art.wideShader,box);
         }
-        mediaShade(c,box,true);
         int ink=tone(L_INK,WHITE),dim=tone(0xFF59616D,0xFFBEC8D6);
         streamText(c,"Em destaque",132,205,20,streamAccent(),700);
         streamText(c,p==null?"Seu cinema começa aqui":p.title,132,280,48,ink,960);
@@ -4578,8 +4572,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         WatchNext.Item it=watching.get(i); float x=cell.left/k, y=cell.top/k;
         streamBox(c,cell,tone(0xFFE7EAF0,0xFF0E141B),false);
         Bitmap art=watchArt.get(it.pictureUri,it.pictureKey,it.bannerKey,it.pkg);
-        if(art!=null) coverImage(c,art,watchArt.shader(art),cell,24*k,1);
-        mediaShade(c,cell,false);
+        if(art!=null) completeArtwork(c,art,watchArt.shader(art),cell);
         int ink=tone(L_INK,WHITE),dim=tone(0xFF59616D,0xFFB8C3D1);
         String left=timeLeft(it);
         float barRight=left==null?x+532:x+335;
