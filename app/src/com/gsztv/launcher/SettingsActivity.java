@@ -1022,6 +1022,7 @@ public class SettingsActivity extends Activity {
             l.add("Solana");
             if (dollar()) l.add(Ui.tr("Dollar"));
             l.add(Ui.tr("TMDB key"));
+            l.add("Aviso de atualização na tela inicial");
             l.add("Atualizações automáticas");
             l.add(Ui.tr("Updates"));
             return l.toArray(new String[0]);
@@ -1033,7 +1034,7 @@ public class SettingsActivity extends Activity {
         }
 
         private int keyRow() {
-            return updatesRow() - 2;
+            return updatesRow() - 3;
         }
 
         /** The TMDB key row: "Not set", or the key's last 4 characters (all that's ever shown of it). */
@@ -1148,9 +1149,10 @@ public class SettingsActivity extends Activity {
             if (HOME_ROW >= 0) v[HOME_ROW] = onOff(HomeAssistant.on(getContext()));
             v[QUOTES_ROW] = onOff(Prefs.quotes());
             // No quotes widget, nowhere to show prices: the coins read as off (and stay locked) until it is back on.
-            for (int i = COIN_ROWS; i < v.length - 3; i++) v[i] = onOff(Prefs.quotes() && Prefs.coin(i - COIN_ROWS));
-            v[v.length - 3] = keyValue();
-            v[v.length - 2] = Prefs.autoUpdates() ? "Verificar e baixar diariamente" : "Manual";
+            for (int i = COIN_ROWS; i < v.length - 4; i++) v[i] = onOff(Prefs.quotes() && Prefs.coin(i - COIN_ROWS));
+            v[v.length - 4] = keyValue();
+            v[v.length - 3] = onOff(Prefs.updateBanner());
+            v[v.length - 2] = Prefs.autoUpdates() ? "Baixar diariamente; instalação com confirmação" : "Desativadas";
             v[v.length - 1] = updatesValue();
             return v;
         }
@@ -2395,9 +2397,15 @@ public class SettingsActivity extends Activity {
             } else if (screen == HOME_SETTINGS && pickScroll + focus == PHOTOS_ROW) {
                 askRemovePhotos();
                 return;
+            } else if (screen == HOME_SETTINGS && pickScroll + focus == updatesRow() - 2) {
+                Prefs.setUpdateBanner(!Prefs.updateBanner());
+                Updates.schedule(getContext());
+                invalidate();
+                return;
             } else if (screen == HOME_SETTINGS && pickScroll + focus == updatesRow() - 1) {
                 Prefs.setAutoUpdates(!Prefs.autoUpdates());
                 Updates.schedule(getContext());
+                if (Prefs.autoUpdates()) ModeJob.schedule(getContext(), ModeJob.DISCOVER, "", 0);
                 invalidate();
                 return;
             } else if (screen == HOME_SETTINGS && pickScroll + focus == updatesRow()) {

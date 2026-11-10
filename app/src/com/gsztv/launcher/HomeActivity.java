@@ -21,6 +21,7 @@ public class HomeActivity extends Activity {
     /** Opens All Apps (a remote's All Apps button, RemoteKeys). */
     static final String EXTRA_ALL_APPS = "com.gsztv.launcher.ALL_APPS";
     private HomeView home;
+    private UpdateBanner updateBanner;
     private int prefsVersion = Prefs.version;   // settings changed while we were away: start over
 
     @Override protected void onCreate(Bundle savedInstanceState) {
@@ -42,7 +43,13 @@ public class HomeActivity extends Activity {
         }
         Ui.init(this);
         home = new HomeView(this);
-        setContentView(home);
+        android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+        root.addView(home);
+        updateBanner = new UpdateBanner(this, home);
+        android.widget.FrameLayout.LayoutParams bp = new android.widget.FrameLayout.LayoutParams(-1, -2, Gravity.TOP);
+        bp.setMargins(16, 12, 16, 0);
+        root.addView(updateBanner, bp);
+        setContentView(root);
         getWindow().setBackgroundDrawable(null);
         if (getIntent().getBooleanExtra(EXTRA_ALL_APPS, false)) home.showAllApps();
     }
@@ -60,10 +67,11 @@ public class HomeActivity extends Activity {
             return;
         }
         if (home != null) home.resume();
-        Updates.tellOnce(this);   // an update the week's check got ready: said once
+        if (updateBanner != null) updateBanner.resume();
     }
 
     @Override protected void onPause() {
+        if (updateBanner != null) updateBanner.pause();
         if (home != null) home.pause();
         super.onPause();
     }
@@ -88,6 +96,7 @@ public class HomeActivity extends Activity {
     private static final long TWICE_MS = 700;
 
     @Override protected void onDestroy() {
+        if (updateBanner != null) updateBanner.destroy();
         if (home != null) home.destroy();
         super.onDestroy();
     }
@@ -102,6 +111,8 @@ public class HomeActivity extends Activity {
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         if (RemoteKeys.onKey(this, event)) return true;
+        if (updateBanner != null && updateBanner.route(event)) return true;
+        if (updateBanner != null && updateBanner.hasFocus()) return super.dispatchKeyEvent(event);
         if (home != null && home.onKey(event)) return true;
         return super.dispatchKeyEvent(event);
     }

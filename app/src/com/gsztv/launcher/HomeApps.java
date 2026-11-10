@@ -353,11 +353,13 @@ final class HomeApps {
         items.add(shortcut(SETTINGS, "settings", Ui.tr("Home Settings"), "settings"));
         items.add(shortcut(ANDROID_SETTINGS, "tv-settings", Ui.tr("TV Settings"), "tv_settings"));
         if (!Prefs.recents().equals("off")) items.add(shortcut(RECENTS, "recents", Ui.tr("Recent Apps"), "recents"));   // opt-in (Home Settings)
-        // GSZ TV / HY300: preserve the complete factory projector menu, including
-        // keystone, four-corner correction, zoom, focus, rotation and image controls.
-        device(c, items, "projector-menu", "Projector Settings", "keystone",
-                new Intent().setComponent(new ComponentName("com.htc.htcsettings",
-                        "com.htc.activity.HomeActivity")));
+        // Projector controls are OEM-specific, even between HY300/HY320 firmware revisions.
+        // Prefer the known complete HTC menu, then the launchable settings app on other
+        // firmware families. Never point this shortcut at a keystone-only activity.
+        Intent projectorSettings = projectorSettings(c);
+        if (projectorSettings != null) {
+            device(c, items, "projector-menu", "Projector Settings", "keystone", projectorSettings);
+        }
         // The HY300 firmware in this device exposes its source picker through HiSilicon,
         // not through the Allwinner player used by other HY300 revisions.
         device(c, items, "hdmi-source", "HDMI", "hdmi",
@@ -381,6 +383,30 @@ final class HomeApps {
         Item it = shortcut(DEVICE, key, label, symbol);
         it.intent = intent;
         items.add(it);
+    }
+
+    /**
+     * A projector's factory settings screen has no Android-wide intent. Select only known
+     * OEM settings apps that expose a launcher activity, so firmware/board revisions can
+     * vary without advertising a shortcut that cannot open. Generic TV settings remain a
+     * separate drawer item.
+     */
+    private static Intent projectorSettings(Context c) {
+        PackageManager pm = c.getPackageManager();
+        Intent htcHome = new Intent().setComponent(new ComponentName("com.htc.htcsettings",
+                "com.htc.activity.HomeActivity"));
+        if (pm.resolveActivity(htcHome, 0) != null) return htcHome;
+
+        String[] settingsPackages = {
+                "com.htc.htcsettings",  // alternate HY300/HY320 firmware entry point
+                "com.htc.luminaos",     // Hotack X1BR / LuminaOS
+                "com.fengmi.fmsettings" // Fengmi / Formovie projectors
+        };
+        for (String packageName : settingsPackages) {
+            Intent launch = pm.getLaunchIntentForPackage(packageName);
+            if (launch != null && pm.resolveActivity(launch, 0) != null) return launch;
+        }
+        return null;
     }
 
     /** A streaming service's app (the "Watch" button of the featured pick). */

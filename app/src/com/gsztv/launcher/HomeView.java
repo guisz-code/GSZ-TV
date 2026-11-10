@@ -2991,6 +2991,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         return -1;
     }
 
+    boolean atUpdateBannerEdge() {
+        return !menuOpen && !sheetOpen && !drawerOpen && !reordering && !recentsOpen()
+                && (zone == Z_TOP || zone == Z_STATUS);
+    }
+
     boolean onKey(KeyEvent e) {
         wake();
         if (menuOpen) return menuKey(e);

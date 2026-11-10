@@ -272,7 +272,9 @@ final class Prefs {
     static void setTopContent(String v) { put("topContent", v); }
     static String nuvioCatalogs() { return sp().getString("nuvioCatalogs", ""); }
     static void setNuvioCatalogs(String urls) { put("nuvioCatalogs", urls); }
-    static boolean autoUpdates() { return sp().getBoolean("autoUpdates", true); }
+    static boolean autoUpdates() { return sp().getBoolean("autoUpdates", false); }
+    static boolean updateBanner() { return sp().getBoolean("updateBanner", true); }
+    static void setUpdateBanner(boolean on) { put("updateBanner", on); }
     static void setAutoUpdates(boolean on) { put("autoUpdates", on); }
 
     /** Apps left out of Continue Watching (Settings), by package. */

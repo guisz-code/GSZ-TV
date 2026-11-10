@@ -31,7 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 /**
- * Updates from GitHub's releases (Android only). Once a week, and from Home Settings > Updates, the latest release is
+ * Updates from GitHub's releases (Android only). Daily, and from Home Settings > Updates, the latest release is
  * looked up; a newer one's GSZTV.apk is downloaded and checked (GitHub's size and SHA-256, a newer version, the
  * project's key), then handed on OK to Android's installer, which asks before installing. Only the APK from the
  * releases (--generic, the project's key) takes them: a build made on a computer has its own key and config, so it's
@@ -78,12 +78,12 @@ final class Updates {
         return releaseKey;
     }
 
-    /** The week's check, as a job that waits for the network and survives restarts (scheduled once). */
+    /** The daily check, as a job that waits for the network and survives restarts (scheduled once). */
     static void schedule(Context c) {
         if (!takesReleases(c)) return;
         JobScheduler scheduler = c.getSystemService(JobScheduler.class);
         if (scheduler == null) return;
-        if (!Prefs.autoUpdates()) { scheduler.cancel(JOB); return; }
+        if (!Prefs.autoUpdates() && !Prefs.updateBanner()) { scheduler.cancel(JOB); return; }
         JobInfo existing = scheduler.getPendingJob(JOB);
         if (existing != null && existing.getIntervalMillis() == 24 * 3600_000L) return;
         scheduler.cancel(JOB);
@@ -157,6 +157,7 @@ final class Updates {
         String v = o.optString("version");
         if (READY.equals(o.optString("state")) && !ready(o, installed)) return Ui.tr("Up to date");
         switch (o.optString("state")) {
+            case "available": return Ui.trf("Download {version}", "version", v);
             case CHECKING: return busy(o) ? Ui.tr("Checking…") : Ui.tr("Check now");
             case DOWNLOADING: return busy(o) ? Ui.tr("Downloading…") : Ui.tr("Check now");
             // No check for over a week (no network for the week's, or a build made on a computer): asks again.
@@ -192,11 +193,13 @@ final class Updates {
      * Looks for a newer release and, on the APK from the releases, downloads and checks it. ModeJob's thread, main
      * process. True when it failed in a way worth trying again soon (the network, GitHub).
      */
-    static synchronized boolean check(Context c) {
+    static synchronized boolean check(Context c) { return check(c, true); }
+
+    static synchronized boolean check(Context c, boolean downloadRequested) {
         JSONObject before = state(c);
         String version = "";
         try {
-            set(c, CHECKING, "", "");
+            set(c, CHECKING, before.optString("version"), "");
             JSONObject release = new JSONObject(get(LATEST));
             version = release.optString("tag_name").replaceFirst("^[vV]", "");
             if (version.isEmpty()) throw new IOException("the latest release has no tag");
@@ -228,6 +231,10 @@ final class Updates {
                 return false;
             }
             File apk = new File(dir(c), name);
+            if (!downloadRequested && !apk.exists()) {
+                set(c, "available", version, "");
+                return false;
+            }
             if (!apk.exists()) {
                 set(c, DOWNLOADING, version, "");
                 download(c, version, url, digest, size, apk);

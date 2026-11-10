@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets;
  */
 public class ModeJob extends JobService {
     static final String APPLY = "apply", VERIFY = "verify", REVERT = "revert", MEMORY = "memory", REMOTE = "remote",
-            PLAYING = "playing", UPDATE = "update", INSTALL = "install", GRANT_WATCH = "watchGrant",
+            PLAYING = "playing", UPDATE = "update", DISCOVER = "updateDiscover", INSTALL = "install", GRANT_WATCH = "watchGrant",
             REVOKE_WATCH = "watchRevoke";   // job ids come from these names: keep them apart
 
     @Override public boolean onStartJob(JobParameters params) {
@@ -34,6 +34,7 @@ public class ModeJob extends JobService {
             if (APPLY.equals(action)) noteStarted(app, at);
             boolean again = false;   // the week's update check failed: the system tries again soon (Updates.schedule)
             try {
+                if (DISCOVER.equals(action) || UPDATE.equals(action)) Prefs.reload();
                 switch (action) {
                     case APPLY: HomeMode.applyNow(app, mode); break;
                     case VERIFY: HomeMode.verifyNow(app); break;
@@ -41,7 +42,9 @@ public class ModeJob extends JobService {
                     case MEMORY: HomeMode.measureMemoryNow(app, mode); break;
                     case REMOTE: HomeMode.ensureRemoteServiceNow(app); break;
                     case PLAYING: HomeMode.nowPlayingAccessNow(app); break;
-                    case UPDATE: again = Updates.check(app) && params.getJobId() == Updates.JOB; break;   // the week's, or OK
+                    case DISCOVER: if (Prefs.updateBanner() || Prefs.autoUpdates()) Updates.check(app, Prefs.autoUpdates()); break;
+                    case UPDATE: if (params.getJobId() != Updates.JOB || Prefs.updateBanner() || Prefs.autoUpdates())
+                        again = Updates.check(app, params.getJobId() != Updates.JOB || Prefs.autoUpdates()) && params.getJobId() == Updates.JOB; break;   // the week's, or OK
                     case INSTALL: Updates.install(app); break;
                     case GRANT_WATCH: HomeMode.grantWatchNow(app); break;
                     case REVOKE_WATCH: HomeMode.revokeWatchNow(app); break;

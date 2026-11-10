@@ -113,6 +113,14 @@ adb connect IP_DA_TV:PORTA
 adb install -r GSZTV.apk
 ```
 
+## Atualizações no Android
+
+A tela inicial pode mostrar um aviso com a nova versão. Selecione **Baixar atualização** e, quando o download terminar, **Instalar atualização**. O Android solicita a confirmação da instalação.
+
+O botão **×** fecha o aviso até ligar a tela novamente. Em **Configurações da tela inicial**, desative **Aviso de atualização na tela inicial** para ocultá-lo permanentemente.
+
+As **Atualizações automáticas** vêm desativadas nas novas instalações. Quando ativadas, o launcher verifica e baixa novas versões diariamente, conforme a disponibilidade de rede e o agendamento do Android. A instalação continua dependendo da confirmação do usuário. O APK é validado antes de ser oferecido para instalação.
+
 ## Compilar o projeto
 
 Para criar um APK genérico de distribuição, instale o **JDK 17 ou superior**, o **Android SDK Platform** e o **Android Build Tools 34 ou superior**. Configure `JAVA_HOME` e `ANDROID_HOME` (ou `ANDROID_SDK_ROOT`) e execute:
