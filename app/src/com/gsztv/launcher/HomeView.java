@@ -121,7 +121,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private static final float L_STATUS = 25, L_STATUS_GAP = 22;
     private static final String[] STATUS_SYMBOLS = {"wifi", "ethernet", "bluetooth", "usb"};
     private static final float L_PLATTER_TOP = 870, L_TILE_H = 120;
-    private static final float STREAM_APPS_TITLE_Y = 900, STREAM_APPS_TOP = 915;
+    private static final float STREAM_APPS_TITLE_Y = 900, STREAM_APPS_TOP = 910;
     private static final float L_DATE_BASE = 330, L_CLOCK_BASE = 540, L_WEATHER_BASE = 626, L_QUOTES_BASE = 694;
     private static final int L_INK = 0xFF1D1D1F, L_DIM = 0xFF6E6E73, L_FAINT = 0xFF8E8E93;
     private static String[] tabs;
@@ -753,6 +753,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     }
 
     void destroy() {
+        backgroundClosed = true;
+        gszBackground = null;
         pause();
         try {
             if (launcherApps != null) launcherApps.unregisterCallback(packages);
@@ -845,7 +847,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         int width = MeasureSpec.getSize(widthSpec), height = MeasureSpec.getSize(heightSpec);
         float kk = width / 1920f;
         measure(sky, width, height);
-        measure(heroLayer, width, Math.round(900 * kk));
+        // Keep the app heading's descenders inside this layer after moving it below Watch Next.
+        measure(heroLayer, width, Math.round((streamingDesign() ? STREAM_APPS_TITLE_Y + 24 : 900) * kk));
         // The icons at the top left need the whole width; with them off the layer keeps its old size (the corner buttons
         // only), so the GPU still composites a small layer.
         statusWide = Prefs.statusIcons();
@@ -853,7 +856,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         // Sized to what they draw (the glass and its shadow; the grown tiles and their shadows): smaller layers are
         // cheaper for the GPU to composite on every frame of the drawer animation.
         measure(platter, width, Math.round(320 * kk));
-        measure(tiles, width, Math.round(270 * kk));
+        // Include the selected tile's growth and outline below the relocated app row.
+        measure(tiles, width, Math.max(Math.round(270 * kk), height - Math.round(790 * kk)));
         measure(drawerLayer, width, Math.round(600 * kk));
         measure(sheetLayer, width, height);
         measure(menuLayer, width, height);
@@ -1838,7 +1842,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         boolean scrolls = shelf.size() > shelfVisible;
         if (scrolls) {
             c.save();
-            c.clipRect(platterRect.left, 0, platterRect.right, h);
+            // The glass padding alone is narrower than a focused tile and its outer outline.
+            c.clipRect(Math.max(0, platterRect.left - 24 * k), 0,
+                    Math.min(w, platterRect.right + 24 * k), h);
         }
         for (int pass = 0; pass < 2; pass++) {
             for (int i = 0; i < shelf.size(); i++) {
@@ -4476,6 +4482,29 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private LinearGradient streamSkyGradient, streamHeroGradient, mediaTextShade;
     private int streamSkyW, streamSkyH, streamHeroColor;
     private float streamHeroK;
+    private Bitmap gszBackground;
+    private boolean backgroundRequested, backgroundClosed;
+    private final Paint backgroundPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final RectF backgroundBounds = new RectF();
+
+    private void requestGszBackground() {
+        if (backgroundRequested || backgroundClosed) return;
+        backgroundRequested = true;
+        LOADER.execute(() -> {
+            Bitmap bitmap = null;
+            try (java.io.InputStream in = getContext().getAssets().open("gsztv-background.png")) {
+                android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
+                options.inPreferredConfig = Bitmap.Config.RGB_565;
+                bitmap = android.graphics.BitmapFactory.decodeStream(in, null, options);
+            } catch (java.io.IOException e) { AppLog.w("GSZ background: " + e); }
+            final Bitmap ready = bitmap;
+            handler.post(() -> {
+                if (backgroundClosed) return;
+                gszBackground = ready;
+                sky.invalidate();
+            });
+        });
+    }
     private int streamAccent() { return Prefs.theme().equals("gsz") ? 0xFF009DFF : tone(0xFF17191D, 0xFFF4F5F7); }
     private void streamText(Canvas c, String value, float x, float y, float size, int color, float width) {
         fitPaint.set(lCardTitle); fitPaint.setTextSize(size*k); fitPaint.setColor(color);
@@ -4489,6 +4518,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void drawStreamingSky(Canvas c) {
         c.drawColor(tone(0xFFF5F6F8, 0xFF050709));
         if (Prefs.theme().equals("gsz")) {
+            requestGszBackground();
+            if (gszBackground != null) {
+                float scale = Math.max(w / (float) gszBackground.getWidth(), h / (float) gszBackground.getHeight());
+                float width = gszBackground.getWidth() * scale, height = gszBackground.getHeight() * scale;
+                backgroundBounds.set((w-width)/2, (h-height)/2, (w+width)/2, (h+height)/2);
+                c.drawBitmap(gszBackground, null, backgroundBounds, backgroundPaint);
+                return;
+            }
             if (streamSkyGradient == null || streamSkyW != w || streamSkyH != h) {
                 streamSkyW = w; streamSkyH = h;
                 streamSkyGradient = new LinearGradient(0,0,w,h,new int[]{0xFF02070D,0xFF001C32,0xFF020508},null,Shader.TileMode.CLAMP);
@@ -4548,12 +4585,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                 if(image!=null) coverImage(c,image,watchArt.shader(image),box,24*k,1);
             } else if(art!=null && art.wide!=null) coverImage(c,art.wide,art.wideShader,box,24*k,1);
         }
-        int ink=tone(L_INK,WHITE),dim=tone(0xFF59616D,0xFFBEC8D6);
+        int ink=WHITE,dim=WHITE;
         streamClip.rewind(); streamClip.addRoundRect(box,24*k,24*k,android.graphics.Path.Direction.CW);
         c.save(); c.clipPath(streamClip);
         if(mediaTextShade==null) mediaTextShade=new LinearGradient(0,0,1040*k,0,new int[]{0xE8000914,0xB8000914,0x00000914},null,Shader.TileMode.CLAMP);
         fill.setShader(mediaTextShade); c.drawRect(box.left,box.top,box.left+1100*k,box.bottom,fill); fill.setShader(null); c.restore();
-        streamText(c,"Em destaque",132,205,20,streamAccent(),700);
+        streamText(c,"Em destaque",132,205,20,Prefs.theme().equals("gsz") ? streamAccent() : WHITE,700);
         streamText(c,p==null?"Seu cinema começa aqui":p.title,132,280,48,ink,960);
         streamText(c,p==null?"Configure a chave TMDB para receber destaques.":p.meta==null?"":p.meta,132,330,23,dim,880);
         streamText(c,p==null?"": "◀  ▶  Explore os títulos em destaque",132,375,20,dim,850);
