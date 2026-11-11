@@ -121,6 +121,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private static final float L_STATUS = 25, L_STATUS_GAP = 22;
     private static final String[] STATUS_SYMBOLS = {"wifi", "ethernet", "bluetooth", "usb"};
     private static final float L_PLATTER_TOP = 870, L_TILE_H = 120;
+    private static final float STREAM_APPS_TITLE_Y = 900, STREAM_APPS_TOP = 915;
     private static final float L_DATE_BASE = 330, L_CLOCK_BASE = 540, L_WEATHER_BASE = 626, L_QUOTES_BASE = 694;
     private static final int L_INK = 0xFF1D1D1F, L_DIM = 0xFF6E6E73, L_FAINT = 0xFF8E8E93;
     private static String[] tabs;
@@ -1623,7 +1624,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         float tw = Math.min(L_TILE_H * 16f / 9 * k, (full - Math.max(0, n - 1) * gap) / Math.max(1, n));
         float th = tw * 9f / 16;
         float width = n * tw + Math.max(0, n - 1) * gap, left = (w - width) / 2f;
-        float top = (L_PLATTER_TOP + L_TILE_H) * k - th;
+        float top = ((streamingDesign() ? STREAM_APPS_TOP : L_PLATTER_TOP) + L_TILE_H) * k - th;
         platterRect.set(left - pad, top, left + width + pad, top + th + 2 * pad);
         snap(platterRect);
         shelfFirst = Math.max(0, Math.min(shelfFirst, shelf.size() - n));
@@ -4523,7 +4524,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             for(int i=0;i<watching.size();i++) drawStreamingWatch(c,i);
             c.restore();
         }
-        } streamText(c,"Meus apps",80,862,34,ink,1000);
+        } streamText(c,"Meus apps",80,STREAM_APPS_TITLE_Y,34,ink,1000);
     }
     private final RectF completeArtworkBounds = new RectF();
 
@@ -4571,20 +4572,38 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         if(count>9) streamText(c,(cardIndex+1)+" / "+count,1730,510,18,ink,100);
     }
+    // Shared unit gradient: smoothly darkens only the information area, without a hard strip edge.
+    private final LinearGradient watchInfoShade = new LinearGradient(0,0,0,1,
+            new int[]{0x0003080D,0x0003080D,0xB303080D,0xF003080D,0xFC03080D},
+            new float[]{0,.34f,.64f,.82f,1},Shader.TileMode.CLAMP);
+    private void drawWatchInfoShade(Canvas c, RectF bounds) {
+        c.save();
+        streamClip.rewind();
+        streamClip.addRoundRect(bounds,24*k,24*k,android.graphics.Path.Direction.CW);
+        c.clipPath(streamClip);
+        c.translate(bounds.left,bounds.top);
+        c.scale(bounds.width(),bounds.height());
+        fill.setShader(watchInfoShade); fill.setAlpha(255);
+        c.drawRect(0,0,1,1,fill);
+        fill.setShader(null);
+        c.restore();
+    }
     private void drawStreamingWatch(Canvas c, int i) {
         watchRect(i,cell); if(cell.left>w || cell.right<0) return;
         WatchNext.Item it=watching.get(i); float x=cell.left/k, y=cell.top/k;
         streamBox(c,cell,tone(0xFFE7EAF0,0xFF0E141B),false);
         Bitmap art=watchArt.get(it.pictureUri,it.pictureKey,it.bannerKey,it.pkg);
         if(art!=null) coverImage(c,art,watchArt.shader(art),cell,24*k,1);
-        int ink=WHITE,dim=WHITE;
+        drawWatchInfoShade(c,cell);
+        int ink=WHITE,dim=0xFFB8C1CC;
+        int progressInk=Prefs.theme().equals("gsz") ? 0xFF009DFF : WHITE;
         String remaining=timeLeft(it);
         if(it.progress()>=0) {
             tmp.set((x+22)*k,(y+166)*k,(x+385)*k,(y+173)*k);
-            fill.setColor(0x88000000); c.drawRoundRect(tmp,4*k,4*k,fill);
-            tmp.right=tmp.left+tmp.width()*it.progress(); fill.setColor(streamAccent()); c.drawRoundRect(tmp,4*k,4*k,fill);
+            fill.setColor(0xFF50565E); c.drawRoundRect(tmp,4*k,4*k,fill);
+            tmp.right=tmp.left+tmp.width()*it.progress(); fill.setColor(progressInk); c.drawRoundRect(tmp,4*k,4*k,fill);
             streamText(c,remaining,x+405,y+174,16,ink,132);
-        } else if(it.episode!=null) streamText(c,"Próximo episódio",x+22,y+174,17,streamAccent(),300);
+        } else if(it.episode!=null) streamText(c,"Próximo episódio",x+22,y+174,17,progressInk,300);
         streamText(c,it.title,x+22,y+214,23,ink,515);
         if(it.episode!=null) streamText(c,it.episode,x+22,y+245,16,dim,515);
         rim.setShader(null); rim.setColor(zone==Z_WATCH && watchIndex==i?streamAccent():tone(0xFFB9C3D0,0xFF344557));
